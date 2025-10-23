@@ -8,6 +8,7 @@ from .io import IO
 import random
 import os
 import json
+import csv
 from .build import DATASETS
 from utils.logger import *
 
@@ -26,6 +27,15 @@ class PCN(data.Dataset):
         self.subset = config.subset
         self.cars = config.CARS
 
+        # Caption loading configuration
+        self.return_captions = getattr(config, 'RETURN_CAPTIONS', False)
+        self.caption_csv_path = getattr(config, 'CAPTION_CSV_PATH', None)
+        self.captions = {}
+
+        # Load captions from CSV if provided
+        if self.return_captions and self.caption_csv_path and os.path.exists(self.caption_csv_path):
+            self._load_captions()
+
         # Load the dataset indexing file
         self.dataset_categories = []
         with open(self.category_file) as f:
@@ -33,9 +43,38 @@ class PCN(data.Dataset):
             if config.CARS:
                 self.dataset_categories = [dc for dc in self.dataset_categories if dc['taxonomy_id'] == '02958343']
 
+        # Create taxonomy name mapping
+        self.taxonomy_names = {dc['taxonomy_id']: dc['taxonomy_name'] for dc in self.dataset_categories}
+
         self.n_renderings = 8 if self.subset == 'train' else 1
         self.file_list = self._get_file_list(self.subset, self.n_renderings)
         self.transforms = self._get_transforms(self.subset)
+
+    def _load_captions(self):
+        """Load captions from CSV file."""
+        print_log(f'Loading captions from {self.caption_csv_path}', logger='PCNDATASET')
+        with open(self.caption_csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 2:
+                    # First column: {category_id}_{instance_id}
+                    # Second column: caption
+                    instance_key = row[0].strip()
+                    caption = row[1].strip()
+                    self.captions[instance_key] = caption
+        print_log(f'Loaded {len(self.captions)} captions', logger='PCNDATASET')
+
+    def _get_caption(self, taxonomy_id, model_id):
+        """Get caption for an instance, with fallback to class-based caption."""
+        instance_key = f"{taxonomy_id}_{model_id}"
+
+        # Try to get caption from loaded captions
+        if instance_key in self.captions:
+            return self.captions[instance_key]
+
+        # Fallback: create caption based on taxonomy name
+        taxonomy_name = self.taxonomy_names.get(taxonomy_id, 'object')
+        return f"a 3d point cloud of a {taxonomy_name}"
 
     def _get_transforms(self, subset):
         if subset == 'train':
@@ -99,13 +138,17 @@ class PCN(data.Dataset):
             if type(file_path) == list:
                 file_path = file_path[rand_idx]
             data[ri] = IO.get(file_path).astype(np.float32)
-
+        
         assert data['gt'].shape[0] == self.npoints
 
         if self.transforms is not None:
             data = self.transforms(data)
 
-        return sample['taxonomy_id'], sample['model_id'], (data['partial'], data['gt'])
+        if self.return_captions:
+            caption = self._get_caption(sample['taxonomy_id'], sample['model_id'])
+            return sample['taxonomy_id'], sample['model_id'], (data['partial'], data['gt']), caption
+        else:
+            return sample['taxonomy_id'], sample['model_id'], (data['partial'], data['gt'])
 
     def __len__(self):
         return len(self.file_list)
@@ -121,6 +164,15 @@ class PCNv2(data.Dataset):
         self.subset = config.subset
         self.cars = config.CARS
 
+        # Caption loading configuration
+        self.return_captions = getattr(config, 'RETURN_CAPTIONS', False)
+        self.caption_csv_path = getattr(config, 'CAPTION_CSV_PATH', None)
+        self.captions = {}
+
+        # Load captions from CSV if provided
+        if self.return_captions and self.caption_csv_path and os.path.exists(self.caption_csv_path):
+            self._load_captions()
+
         # Load the dataset indexing file
         self.dataset_categories = []
         with open(self.category_file) as f:
@@ -128,9 +180,39 @@ class PCNv2(data.Dataset):
             if config.CARS:
                 self.dataset_categories = [dc for dc in self.dataset_categories if dc['taxonomy_id'] == '02958343']
 
+        # Create taxonomy name mapping
+        self.taxonomy_names = {dc['taxonomy_id']: dc['taxonomy_name'] for dc in self.dataset_categories}
+
         self.n_renderings = 8 if self.subset == 'train' else 1
         self.file_list = self._get_file_list(self.subset, self.n_renderings)
         self.transforms = self._get_transforms(self.subset)
+
+    def _load_captions(self):
+        """Load captions from CSV file."""
+        print_log(f'Loading captions from {self.caption_csv_path}', logger='PCNDATASET')
+        with open(self.caption_csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 2:
+                    # First column: {category_id}_{instance_id}
+                    # Second column: caption
+                    instance_key = row[0].strip()
+                    caption = row[1].strip()
+                    self.captions[instance_key] = caption
+        print_log(f'Loaded {len(self.captions)} captions', logger='PCNDATASET')
+
+    def _get_caption(self, taxonomy_id, model_id):
+        """Get caption for an instance, with fallback to class-based caption."""
+        instance_key = f"{taxonomy_id}_{model_id}"
+
+        # Try to get caption from loaded captions
+        if instance_key in self.captions:
+            return self.captions[instance_key]
+
+        # Fallback: create caption based on taxonomy name
+        taxonomy_name = self.taxonomy_names.get(taxonomy_id, 'object')
+        return f"a 3d point cloud of a {taxonomy_name}"
+
     def _get_transforms(self, subset):
         if subset == 'train':
             return data_transforms.Compose([{
@@ -199,7 +281,11 @@ class PCNv2(data.Dataset):
         if self.transforms is not None:
             data = self.transforms(data)
 
-        return sample['taxonomy_id'], sample['model_id'], (data['partial'], data['gt'])
+        if self.return_captions:
+            caption = self._get_caption(sample['taxonomy_id'], sample['model_id'])
+            return sample['taxonomy_id'], sample['model_id'], (data['partial'], data['gt']), caption
+        else:
+            return sample['taxonomy_id'], sample['model_id'], (data['partial'], data['gt'])
 
     def __len__(self):
         return len(self.file_list)
