@@ -261,7 +261,9 @@ def save_results(output_dir, baseline_results=None, refined_results=None,
 
     output_file = os.path.join(output_dir, 'evaluation_results.json')
     with open(output_file, 'w') as f:
-        json.dump(results, f, indent=2, default=lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+        # json.dump(results, f, indent=2, default=lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+        json.dump(results, f, indent=2, default=str)
+
 
     print(f'Results saved to {output_file}')
 
@@ -373,7 +375,7 @@ def main():
         args.output_dir,
         baseline_results=baseline_results,
         refined_results=refined_results,
-        improvement_metrics=improvement_metrics.avg().tolist() if improvement_metrics is not None else None,
+        improvement_metrics=(sum(improvement_metrics) / len(improvement_metrics)) if improvement_metrics is not None else None,
         args=args
     )
 

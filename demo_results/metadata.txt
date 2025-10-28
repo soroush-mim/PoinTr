@@ -1,0 +1,16 @@
+PCN Completion + ULIP Refinement Demo Results
+================================================================================
+
+sample_idx: 855
+taxonomy_id: 04256520
+model_id: 7ae657b39aa2be68ccd1bcd57588acf8
+instance_key: 04256520_7ae657b39aa2be68ccd1bcd57588acf8
+caption: A contemporary two-seater sofa featuring a minimalist design with clean lines. It is upholstered in a rich, deep red fabric, showcasing a solid structure with slightly flared arms and a sturdy rectangular seat. The legs are short and block-like, adding stability and a modern touch. The overall silhouette emphasizes a sleek and geometric aesthetic, making it suitable for various interior styles.
+partial_points: 2048
+gt_points: 16384
+adapointr_points: 16384
+refinement_steps: 30
+refined_points: 16384
+text_alignment_before: 0.19561973214149475
+text_alignment_after: 0.37337201833724976
+text_alignment_improvement: 0.177752286195755

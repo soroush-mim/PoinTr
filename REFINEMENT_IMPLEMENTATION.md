@@ -4,6 +4,36 @@
 
 This document summarizes the implementation of a plug-and-play test-time refinement system for AdaPoinTr using frozen ULIP-2 encoders.
 
+## Handling Shape Mismatch: RGB Padding Solution
+
+### The Problem
+
+- **AdaPoinTr outputs:** `(B, N, 3)` - xyz coordinates only
+- **ULIP-2 PointBERT encoder expects:** `(B, N, 6)` - xyz + rgb channels
+
+### The Solution
+
+Following ULIP's standard preprocessing (as implemented in `ULIP/data/dataset_3d.py:297-298`), we **automatically pad point clouds with RGB = 0.4** (neutral gray) when color information is not available:
+
+```python
+# In ULIP3DEncoder.forward() - refinement/ulip_loader.py
+B, N, C = xyz.shape
+
+if C == 3:
+    # Add RGB channels with neutral gray (0.4) as per ULIP standard
+    rgb = torch.ones(B, N, 3, device=xyz.device, dtype=xyz.dtype) * 0.4
+    xyz = torch.cat([xyz, rgb], dim=-1)  # Now (B, N, 6)
+
+# Pass to PointBERT encoder
+pc_feat = self.point_encoder(xyz)
+```
+
+This matches how ULIP-2 was trained on datasets without color information (e.g., ModelNet40). The padding is **transparent** - refinement code still works with `(B, N, 3)` point clouds, and padding happens automatically inside the encoder.
+
+### Why RGB = 0.4?
+
+According to ULIP's dataset preprocessing, when color is unavailable, all RGB values are set to 0.4 (neutral gray). This is the value ULIP saw during training for colorless datasets, ensuring consistency between training and inference.
+
 ## What Was Implemented
 
 ### 1. Core Refinement Module (`refinement/`)

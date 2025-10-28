@@ -201,6 +201,7 @@ class ULIPTextEncoder(nn.Module):
         try:
             import open_clip
             self.tokenizer = open_clip.get_tokenizer('ViT-bigG-14')
+            print(f"OpenCLIP tokenizer loaded: {self.tokenizer}")
         except:
             print("Warning: Could not load OpenCLIP tokenizer")
             self.tokenizer = None
