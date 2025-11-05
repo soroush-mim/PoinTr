@@ -218,6 +218,7 @@ def evaluate_baseline(model, test_dataloader, ChamferDisL1, ChamferDisL2, device
             ret = model(partial)
             coarse_points = ret[0]
             dense_points = ret[-1]
+            coarse_points = ret[0]
 
             # Compute losses (matching runner.py lines 361-366)
             sparse_loss_l1 = ChamferDisL1(coarse_points, gt)
@@ -480,6 +481,8 @@ def main():
     # Load config
     print_log(f'Loading config from {args.config}', logger=logger)
     config = cfg_from_yaml_file(args.config)
+    dataset_name = config.dataset.test._base_.NAME
+    print('dataset: ', dataset_name)
 
     # Override data root if provided
     if args.data_root is not None:
