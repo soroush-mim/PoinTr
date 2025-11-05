@@ -179,14 +179,20 @@ def load_captions(caption_csv_path):
     return captions_dict
 
 
-def evaluate_baseline(model, test_dataloader, device, category_filter=None, logger=None):
-    """Evaluate baseline AdaPoinTr without refinement."""
+def evaluate_baseline(model, test_dataloader, ChamferDisL1, ChamferDisL2, device, category_filter=None, logger=None):
+    """Evaluate baseline AdaPoinTr without refinement.
+
+    This function matches the evaluation protocol in tools/runner.py test() method
+    for Projected_ShapeNet dataset.
+    """
     print_log('Evaluating baseline (without refinement)...', logger=logger)
 
     model.eval()
+    test_losses = AverageMeter(['SparseLossL1', 'SparseLossL2', 'DenseLossL1', 'DenseLossL2'])
     test_metrics = AverageMeter(Metrics.names())
     category_metrics = dict()
     all_results = []
+    n_samples = len(test_dataloader)
 
     with torch.no_grad():
         for idx, batch in enumerate(tqdm(test_dataloader, desc='Baseline Eval')):
@@ -197,7 +203,8 @@ def evaluate_baseline(model, test_dataloader, device, category_filter=None, logg
                 taxonomy_ids, model_ids, data = batch
                 captions = None
 
-            taxonomy_id = taxonomy_ids[0] if isinstance(taxonomy_ids[0], str) else str(taxonomy_ids[0])
+            # Extract taxonomy_id (matching runner.py line 348)
+            taxonomy_id = taxonomy_ids[0] if isinstance(taxonomy_ids[0], str) else str(taxonomy_ids[0].item())
             model_id = model_ids[0]
 
             # Filter by category if specified
@@ -207,11 +214,21 @@ def evaluate_baseline(model, test_dataloader, device, category_filter=None, logg
             partial = data[0].to(device)
             gt = data[1].to(device)
 
-            # Run AdaPoinTr
+            # Run AdaPoinTr - get both coarse and dense outputs
             ret = model(partial)
+            coarse_points = ret[0]
             dense_points = ret[-1]
 
-            # Compute metrics (CD-L1 and F-Score only)
+            # Compute losses (matching runner.py lines 361-366)
+            sparse_loss_l1 = ChamferDisL1(coarse_points, gt)
+            sparse_loss_l2 = ChamferDisL2(coarse_points, gt)
+            dense_loss_l1 = ChamferDisL1(dense_points, gt)
+            dense_loss_l2 = ChamferDisL2(dense_points, gt)
+
+            test_losses.update([sparse_loss_l1.item() * 1000, sparse_loss_l2.item() * 1000,
+                               dense_loss_l1.item() * 1000, dense_loss_l2.item() * 1000])
+
+            # Compute metrics (matching runner.py line 368)
             _metrics = Metrics.get(dense_points, gt, require_emd=True)
 
             # Update category metrics
@@ -224,33 +241,40 @@ def evaluate_baseline(model, test_dataloader, device, category_filter=None, logg
                 'taxonomy_id': taxonomy_id,
                 'model_id': model_id,
                 'metrics': _metrics,
+                'losses': [sparse_loss_l1.item() * 1000, sparse_loss_l2.item() * 1000,
+                          dense_loss_l1.item() * 1000, dense_loss_l2.item() * 1000],
                 'caption': captions[0] if captions is not None else None
             })
 
-            if (idx + 1) % 100 == 0:
-                print_log(f'Baseline [{idx+1}/{len(test_dataloader)}] '
-                         f'Taxonomy={taxonomy_id} Sample={model_id} '
-                         f'CD-L1={_metrics[0]*1000:.2f} F-Score={_metrics[2]:.4f}', logger=logger)
+            if (idx + 1) % 200 == 0:
+                print_log(f'Test[{idx+1}/{n_samples}] Taxonomy={taxonomy_id} Sample={model_id} '
+                         f'Losses={["%.4f" % l for l in test_losses.val()]} '
+                         f'Metrics={["%.4f" % m for m in _metrics]}', logger=logger)
 
     # Compute overall metrics
     for _, v in category_metrics.items():
         test_metrics.update(v.avg())
 
-    print_log(f'[BASELINE] Overall Metrics: CD-L1={test_metrics.avg()[0]*1000:.2f}, F-Score={test_metrics.avg()[2]:.4f}',
-              logger=logger)
+    print_log(f'[TEST] Metrics = {["%.4f" % m for m in test_metrics.avg()]}', logger=logger)
 
     return test_metrics, category_metrics, all_results
 
 
-def evaluate_with_refinement(model, refiner, test_dataloader, refinement_config,
-                             device, category_filter=None, captions_dict=None, logger=None):
-    """Evaluate with ULIP-based test-time refinement."""
+def evaluate_with_refinement(model, refiner, test_dataloader, ChamferDisL1, ChamferDisL2,
+                             refinement_config, device, category_filter=None, captions_dict=None, logger=None):
+    """Evaluate with ULIP-based test-time refinement.
+
+    This function matches the evaluation protocol in tools/runner.py test() method
+    for Projected_ShapeNet dataset, with additional refinement step.
+    """
     print_log('Evaluating with ULIP refinement...', logger=logger)
 
     model.eval()
+    test_losses = AverageMeter(['SparseLossL1', 'SparseLossL2', 'DenseLossL1', 'DenseLossL2'])
     test_metrics = AverageMeter(Metrics.names())
     category_metrics = dict()
     all_results = []
+    n_samples = len(test_dataloader)
 
     # Metrics before and after refinement
     improvement_metrics = AverageMeter(['CD-L1_improve', 'F-Score_improve'])
@@ -263,7 +287,8 @@ def evaluate_with_refinement(model, refiner, test_dataloader, refinement_config,
             taxonomy_ids, model_ids, data = batch
             captions = None
 
-        taxonomy_id = taxonomy_ids[0] if isinstance(taxonomy_ids[0], str) else str(taxonomy_ids[0])
+        # Extract taxonomy_id (matching runner.py line 348)
+        taxonomy_id = taxonomy_ids[0] if isinstance(taxonomy_ids[0], str) else str(taxonomy_ids[0].item())
         model_id = model_ids[0]
 
         # Filter by category if specified
@@ -276,6 +301,7 @@ def evaluate_with_refinement(model, refiner, test_dataloader, refinement_config,
         # Run AdaPoinTr to get initial completion
         with torch.no_grad():
             ret = model(partial)
+            coarse_points = ret[0]
             dense_points_initial = ret[-1]
 
         # Metrics before refinement
@@ -303,6 +329,15 @@ def evaluate_with_refinement(model, refiner, test_dataloader, refinement_config,
         with torch.no_grad():
             metrics_after = Metrics.get(dense_points_refined, gt, require_emd=True)
 
+        # Compute losses on refined output (matching runner.py protocol)
+        sparse_loss_l1 = ChamferDisL1(coarse_points, gt)
+        sparse_loss_l2 = ChamferDisL2(coarse_points, gt)
+        dense_loss_l1 = ChamferDisL1(dense_points_refined, gt)
+        dense_loss_l2 = ChamferDisL2(dense_points_refined, gt)
+
+        test_losses.update([sparse_loss_l1.item() * 1000, sparse_loss_l2.item() * 1000,
+                           dense_loss_l1.item() * 1000, dense_loss_l2.item() * 1000])
+
         # Compute improvement
         improvement = [
             (metrics_before[0] - metrics_after[0]) * 1000,  # CD-L1 improvement (×1000)
@@ -322,14 +357,16 @@ def evaluate_with_refinement(model, refiner, test_dataloader, refinement_config,
             'metrics_before': metrics_before,
             'metrics_after': metrics_after,
             'improvement': improvement,
+            'losses': [sparse_loss_l1.item() * 1000, sparse_loss_l2.item() * 1000,
+                      dense_loss_l1.item() * 1000, dense_loss_l2.item() * 1000],
             'caption': caption
         })
 
-        if (idx + 1) % 100 == 0:
-            print_log(f'Refinement [{idx+1}/{len(test_dataloader)}] '
-                     f'Taxonomy={taxonomy_id} Sample={model_id}\n'
-                     f'  Before: CD-L1={metrics_before[0]*1000:.2f}, F-Score={metrics_before[2]:.4f}\n'
-                     f'  After:  CD-L1={metrics_after[0]*1000:.2f}, F-Score={metrics_after[2]:.4f}\n'
+        if (idx + 1) % 200 == 0:
+            print_log(f'Test[{idx+1}/{n_samples}] Taxonomy={taxonomy_id} Sample={model_id}\n'
+                     f'  Losses={["%.4f" % l for l in test_losses.val()]}\n'
+                     f'  Before: {["%.4f" % m for m in metrics_before]}\n'
+                     f'  After:  {["%.4f" % m for m in metrics_after]}\n'
                      f'  Improve: CD-L1={improvement[0]:.2f}, F-Score={improvement[1]:.4f}',
                      logger=logger)
 
@@ -337,8 +374,7 @@ def evaluate_with_refinement(model, refiner, test_dataloader, refinement_config,
     for _, v in category_metrics.items():
         test_metrics.update(v.avg())
 
-    print_log(f'[REFINED] Overall Metrics: CD-L1={test_metrics.avg()[0]*1000:.2f}, F-Score={test_metrics.avg()[2]:.4f}',
-              logger=logger)
+    print_log(f'[TEST] Metrics = {["%.4f" % m for m in test_metrics.avg()]}', logger=logger)
     print_log(f'[IMPROVEMENT] Avg Improvement: CD-L1={improvement_metrics.avg()[0]:.2f}, F-Score={improvement_metrics.avg()[1]:.4f}',
               logger=logger)
 
@@ -447,7 +483,7 @@ def main():
 
     # Override data root if provided
     if args.data_root is not None:
-        config.dataset.val._base_.DATA_PATH = args.data_root
+        config.dataset.test._base_.DATA_PATH = args.data_root
         print_log(f'Overriding data root to {args.data_root}', logger=logger)
 
     # Load captions if provided
@@ -464,6 +500,10 @@ def main():
     base_model.to(args.device)
     base_model.eval()
 
+    # Criterion (matching runner.py lines 332-333)
+    ChamferDisL1 = ChamferDistanceL1()
+    ChamferDisL2 = ChamferDistanceL2()
+
     # Initialize results storage
     all_results = {
         'seen': {'baseline': None, 'refined': None},
@@ -478,7 +518,7 @@ def main():
 
         # Build dataset (test split contains seen categories)
         print_log('Building dataset for seen categories...', logger=logger)
-        test_dataloader = builder.dataset_builder(args, config.dataset.val)[1]
+        test_dataloader = builder.dataset_builder(args, config.dataset.test)[1]
         print_log(f'Dataset size: {len(test_dataloader)}', logger=logger)
 
         # Evaluate baseline
@@ -488,7 +528,7 @@ def main():
 
         if not args.refinement_only:
             baseline_metrics_seen, baseline_category_metrics_seen, baseline_results_seen = evaluate_baseline(
-                base_model, test_dataloader, args.device,
+                base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args.device,
                 category_filter=SHAPENET_34_SEEN_CATEGORIES, logger=logger
             )
             all_results['seen']['baseline'] = {
@@ -531,8 +571,8 @@ def main():
 
             refined_metrics_seen, refined_category_metrics_seen, refined_results_seen, improvement_metrics_seen = \
                 evaluate_with_refinement(
-                    base_model, refiner, test_dataloader, refinement_config,
-                    args.device, category_filter=SHAPENET_34_SEEN_CATEGORIES,
+                    base_model, refiner, test_dataloader, ChamferDisL1, ChamferDisL2,
+                    refinement_config, args.device, category_filter=SHAPENET_34_SEEN_CATEGORIES,
                     captions_dict=captions_dict, logger=logger
                 )
 
@@ -560,12 +600,12 @@ def main():
         # Need to load unseen category dataset
         # Modify config to use unseen category test file
         unseen_config = config.copy()
-        unseen_config.dataset.val._base_.DATA_PATH = unseen_config.dataset.val._base_.DATA_PATH.replace(
+        unseen_config.dataset.test._base_.DATA_PATH = unseen_config.dataset.test._base_.DATA_PATH.replace(
             'Projected_ShapeNet-34_noise', 'Projected_ShapeNet-Unseen21_noise'
         )
 
         print_log('Building dataset for unseen categories...', logger=logger)
-        test_dataloader_unseen = builder.dataset_builder(args, unseen_config.dataset.val)[1]
+        test_dataloader_unseen = builder.dataset_builder(args, unseen_config.dataset.test)[1]
         print_log(f'Dataset size: {len(test_dataloader_unseen)}', logger=logger)
 
         # Evaluate baseline
@@ -575,7 +615,7 @@ def main():
 
         if not args.refinement_only:
             baseline_metrics_unseen, baseline_category_metrics_unseen, baseline_results_unseen = evaluate_baseline(
-                base_model, test_dataloader_unseen, args.device,
+                base_model, test_dataloader_unseen, ChamferDisL1, ChamferDisL2, args.device,
                 category_filter=SHAPENET_UNSEEN21_CATEGORIES, logger=logger
             )
             all_results['unseen']['baseline'] = {
@@ -614,8 +654,8 @@ def main():
 
             refined_metrics_unseen, refined_category_metrics_unseen, refined_results_unseen, improvement_metrics_unseen = \
                 evaluate_with_refinement(
-                    base_model, refiner, test_dataloader_unseen, refinement_config,
-                    args.device, category_filter=SHAPENET_UNSEEN21_CATEGORIES,
+                    base_model, refiner, test_dataloader_unseen, ChamferDisL1, ChamferDisL2,
+                    refinement_config, args.device, category_filter=SHAPENET_UNSEEN21_CATEGORIES,
                     captions_dict=captions_dict, logger=logger
                 )
 
