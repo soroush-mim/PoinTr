@@ -356,6 +356,7 @@ def ULIP2_PointBERT_Colored(args):
     # Default: None (uses ~/.cache/torch/hub/checkpoints/)
     # Change this to your desired directory:
     model_cache_dir = getattr(args, 'model_cache_dir', None)  # Get from args if available
+    # print('heeeeeeeeeeeeeeerrrrrrrrrrrrreeeeeeeeeeee',model_cache_dir)
 
     open_clip_model, _, preprocess = open_clip.create_model_and_transforms(
         'ViT-bigG-14',

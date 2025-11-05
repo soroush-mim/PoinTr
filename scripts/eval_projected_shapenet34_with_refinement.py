@@ -111,6 +111,8 @@ def get_args():
                         help='Path to AdaPoinTr checkpoint')
     parser.add_argument('--ulip_checkpoint', type=str, required=True,
                         help='Path to ULIP-2 checkpoint')
+    parser.add_argument('--model_cache_dir', type=str,
+                        default='/home/soroushm/data')
 
     # Dataset arguments
     parser.add_argument('--caption_csv', type=str, default=None,
@@ -153,7 +155,7 @@ def get_args():
     # Device (same as PCN eval)
     parser.add_argument('--device', type=str, default='cuda',
                         help='Device to use (cuda or cpu)')
-    parser.add_argument('--batch_size', type=int, default=1,
+    parser.add_argument('--batch_size', type=int, default=256,
                         help='Batch size for evaluation')
     parser.add_argument('--distributed', action='store_true')
     parser.add_argument('--num_workers', type=int, default=8)
@@ -503,7 +505,7 @@ def main():
         if not args.no_refinement:
             # Load ULIP-2 encoders
             print_log(f'Loading ULIP-2 encoders from {args.ulip_checkpoint}', logger=logger)
-            encoder_3d, encoder_text = load_ulip_encoders(args.ulip_checkpoint, args.device)
+            encoder_3d, encoder_text = load_ulip_encoders(args.ulip_checkpoint, args.device, model_cache_dir=args.model_cache_dir)
 
             # Initialize refinement module
             print_log('Initializing ULIP refinement module...', logger=logger)
@@ -591,7 +593,7 @@ def main():
             # Reuse or reload ULIP-2 encoders
             if 'refiner' not in locals():
                 print_log(f'Loading ULIP-2 encoders from {args.ulip_checkpoint}', logger=logger)
-                encoder_3d, encoder_text = load_ulip_encoders(args.ulip_checkpoint, args.device)
+                encoder_3d, encoder_text = load_ulip_encoders(args.ulip_checkpoint, args.device, model_cache_dir=args.model_cache_dir)
 
                 print_log('Initializing ULIP refinement module...', logger=logger)
                 refiner = ULIPRefinement(

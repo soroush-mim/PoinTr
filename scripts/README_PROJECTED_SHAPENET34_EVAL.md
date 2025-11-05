@@ -36,9 +36,10 @@ PoinTr/
 ```bash
 python scripts/eval_projected_shapenet34_with_refinement.py \
     --config cfgs/Projected_ShapeNet34_models/AdaPoinTr.yaml \
-    --checkpoint /path/to/adapointr_checkpoint.pth \
-    --ulip_checkpoint /path/to/ulip2_checkpoint.pth \
-    --output_dir results/projected_shapenet34_table4
+    --checkpoint /home/soroushm/data/AdaPoinTr_ps34.pth \
+    --ulip_checkpoint /home/soroushm/data/ULIP-2-PointBERT-10k-xyzrgb-pc-vit_g-objaverse_shapenet-pretrained.pt \
+    --output_dir results/projected_shapenet34_table4 \
+    --caption_csv ~/data/Cap3D_automated_ShapeNet.csv
 ```
 
 ### Baseline Only (No Refinement)
@@ -68,8 +69,8 @@ python scripts/eval_projected_shapenet34_with_refinement.py \
 ```bash
 python scripts/eval_projected_shapenet34_with_refinement.py \
     --config cfgs/Projected_ShapeNet34_models/AdaPoinTr.yaml \
-    --checkpoint /path/to/adapointr_checkpoint.pth \
-    --ulip_checkpoint /path/to/ulip2_checkpoint.pth \
+    --checkpoint ~/data/AdaPoinTr_ps34.pth \
+    --ulip_checkpoint ~/data/ULIP-2-PointBERT-10k-xyzrgb-pc-vit_g-objaverse_shapenet-pretrained.pt \
     --eval_seen \
     --output_dir results/projected_shapenet34_seen
 ```
