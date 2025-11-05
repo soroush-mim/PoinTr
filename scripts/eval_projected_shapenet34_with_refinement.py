@@ -155,7 +155,7 @@ def get_args():
     # Device (same as PCN eval)
     parser.add_argument('--device', type=str, default='cuda',
                         help='Device to use (cuda or cpu)')
-    parser.add_argument('--batch_size', type=int, default=256,
+    parser.add_argument('--batch_size', type=int, default=1,
                         help='Batch size for evaluation')
     parser.add_argument('--distributed', action='store_true')
     parser.add_argument('--num_workers', type=int, default=8)
@@ -212,7 +212,7 @@ def evaluate_baseline(model, test_dataloader, device, category_filter=None, logg
             dense_points = ret[-1]
 
             # Compute metrics (CD-L1 and F-Score only)
-            _metrics = Metrics.get(dense_points, gt, require_emd=False)
+            _metrics = Metrics.get(dense_points, gt, require_emd=True)
 
             # Update category metrics
             if taxonomy_id not in category_metrics:
@@ -279,7 +279,7 @@ def evaluate_with_refinement(model, refiner, test_dataloader, refinement_config,
             dense_points_initial = ret[-1]
 
         # Metrics before refinement
-        metrics_before = Metrics.get(dense_points_initial, gt, require_emd=False)
+        metrics_before = Metrics.get(dense_points_initial, gt, require_emd=True)
 
         # Get caption
         if captions is not None:
@@ -301,7 +301,7 @@ def evaluate_with_refinement(model, refiner, test_dataloader, refinement_config,
 
         # Metrics after refinement
         with torch.no_grad():
-            metrics_after = Metrics.get(dense_points_refined, gt, require_emd=False)
+            metrics_after = Metrics.get(dense_points_refined, gt, require_emd=True)
 
         # Compute improvement
         improvement = [
