@@ -15,6 +15,13 @@ def run_net(args, config, train_writer=None, val_writer=None):
     # build dataset
     (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
                                                             builder.dataset_builder(args, config.dataset.val)
+
+    # build optional unseen validation dataset
+    test_unseen_dataloader = None
+    if hasattr(config.dataset, 'val_unseen'):
+        print_log('[DATASET] Building unseen validation dataset...', logger=logger)
+        _, test_unseen_dataloader = builder.dataset_builder(args, config.dataset.val_unseen)
+
     # build model
     base_model = builder.model_builder(config.model)
     if args.use_gpu:
@@ -33,6 +40,15 @@ def run_net(args, config, train_writer=None, val_writer=None):
         best_metrics = Metrics(config.consider_metric, best_metrics)
     elif args.start_ckpts is not None:
         builder.load_model(base_model, args.start_ckpts, logger = logger)
+
+    # Load pretrained non-text AdaPoinTr weights for text-conditioned model
+    if hasattr(config, 'pretrained_adapointr_path') and config.pretrained_adapointr_path is not None:
+        # Check if model uses text conditioning
+        use_text = hasattr(base_model, 'use_text_conditioning') and base_model.use_text_conditioning
+        if use_text:
+            builder.load_pretrained_adapointr_for_text(base_model, config.pretrained_adapointr_path, logger=logger)
+        else:
+            print_log('[WARNING] pretrained_adapointr_path specified but model does not use text conditioning. Ignoring.', logger=logger)
 
     # print model info
     print_log('Trainable_parameters:', logger = logger)
@@ -216,8 +232,19 @@ def run_net(args, config, train_writer=None, val_writer=None):
                 (epoch,  epoch_end_time - epoch_start_time, ['%.4f' % l for l in losses.avg()]), logger = logger)
 
         if epoch % args.val_freq == 0:
-            # Validate the current model
-            metrics = validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val_writer, args, config, logger=logger)
+            # Validate the current model on seen categories
+            print_log('=' * 60, logger=logger)
+            print_log('[VALIDATION] Evaluating on SEEN categories', logger=logger)
+            print_log('=' * 60, logger=logger)
+            metrics = validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val_writer, args, config, logger=logger, prefix='Seen')
+
+            # Validate on unseen categories if available
+            if test_unseen_dataloader is not None:
+                print_log('=' * 60, logger=logger)
+                print_log('[VALIDATION] Evaluating on UNSEEN categories', logger=logger)
+                print_log('=' * 60, logger=logger)
+                metrics_unseen = validate(base_model, test_unseen_dataloader, epoch, ChamferDisL1, ChamferDisL2, val_writer, args, config, logger=logger, prefix='Unseen')
+                print_log('[VALIDATION] Seen CDL1: %.4f | Unseen CDL1: %.4f' % (metrics.state_dict()['CDL1'], metrics_unseen.state_dict()['CDL1']), logger=logger)
 
             # Save ckeckpoints
             if  metrics.better_than(best_metrics):
@@ -230,8 +257,27 @@ def run_net(args, config, train_writer=None, val_writer=None):
         train_writer.close()
         val_writer.close()
 
-def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val_writer, args, config, logger = None):
-    print_log(f"[VALIDATION] Start validating epoch {epoch}", logger = logger)
+def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val_writer, args, config, logger = None, prefix=''):
+    """
+    Validate the model on a test dataset.
+
+    Args:
+        base_model: Model to validate
+        test_dataloader: DataLoader for test data
+        epoch: Current epoch number
+        ChamferDisL1: Chamfer Distance L1 criterion
+        ChamferDisL2: Chamfer Distance L2 criterion
+        val_writer: TensorBoard writer
+        args: Arguments
+        config: Configuration
+        logger: Logger instance
+        prefix: Optional prefix for logging (e.g., 'Seen' or 'Unseen')
+
+    Returns:
+        Metrics object with validation results
+    """
+    prefix_str = f"[{prefix}] " if prefix else ""
+    print_log(f"{prefix_str}[VALIDATION] Start validating epoch {epoch}", logger = logger)
     base_model.eval()  # set model to eval mode
 
     test_losses = AverageMeter(['SparseLossL1', 'SparseLossL2', 'DenseLossL1', 'DenseLossL2'])
@@ -356,10 +402,11 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
 
     # Add testing results to TensorBoard
     if val_writer is not None:
-        val_writer.add_scalar('Loss/Epoch/Sparse', test_losses.avg(0), epoch)
-        val_writer.add_scalar('Loss/Epoch/Dense', test_losses.avg(2), epoch)
+        metric_prefix = f"{prefix}/" if prefix else ""
+        val_writer.add_scalar(f'{metric_prefix}Loss/Epoch/Sparse', test_losses.avg(0), epoch)
+        val_writer.add_scalar(f'{metric_prefix}Loss/Epoch/Dense', test_losses.avg(2), epoch)
         for i, metric in enumerate(test_metrics.items):
-            val_writer.add_scalar('Metric/%s' % metric, test_metrics.avg(i), epoch)
+            val_writer.add_scalar(f'{metric_prefix}Metric/{metric}', test_metrics.avg(i), epoch)
 
     return Metrics(config.consider_metric, test_metrics.avg())
 

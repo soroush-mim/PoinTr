@@ -160,4 +160,117 @@ def load_model(base_model, ckpt_path, logger = None):
     else:
         metrics = 'No Metrics'
     print_log(f'ckpts @ {epoch} epoch( performance = {str(metrics):s})', logger = logger)
-    return 
+    return
+
+def load_pretrained_adapointr_for_text(base_model, ckpt_path, logger=None):
+    """
+    Load pretrained non-text AdaPoinTr weights into a text-conditioned model.
+
+    This function handles loading weights from a standard AdaPoinTr checkpoint
+    into a text-conditioned AdaPoinTr model. It skips text-specific components
+    (text encoder, text query MLP, ULIP loss module) and loads all shared
+    geometric processing components.
+
+    Args:
+        base_model: Text-conditioned AdaPoinTr model instance
+        ckpt_path: Path to pretrained non-text AdaPoinTr checkpoint
+        logger: Logger instance for printing messages
+
+    Returns:
+        None
+    """
+    if not os.path.exists(ckpt_path):
+        raise FileNotFoundError(f'No checkpoint file at path {ckpt_path}')
+
+    print_log(f'[PRETRAINED] Loading pretrained AdaPoinTr weights from {ckpt_path}...', logger=logger)
+
+    # Load state dict
+    state_dict = torch.load(ckpt_path, map_location='cpu')
+
+    # Extract model weights
+    if state_dict.get('model') is not None:
+        pretrained_dict = {k.replace("module.", ""): v for k, v in state_dict['model'].items()}
+    elif state_dict.get('base_model') is not None:
+        pretrained_dict = {k.replace("module.", ""): v for k, v in state_dict['base_model'].items()}
+    else:
+        raise RuntimeError('Checkpoint does not contain model weights')
+
+    # Get current model state dict
+    model_dict = base_model.state_dict()
+
+    # Filter out text-specific and mismatched parameters
+    text_specific_keys = [
+        'text_encoder',           # CLIP text encoder
+        'mlp_query_text',         # Text-conditioned query generator
+        'ulip_loss_module',       # ULIP alignment loss
+        'ulip_encoder'            # ULIP PointBERT encoder
+    ]
+
+    # Count statistics
+    loaded_keys = []
+    skipped_keys = []
+    missing_keys = []
+
+    # Filter pretrained dict
+    filtered_dict = {}
+    for k, v in pretrained_dict.items():
+        # Skip text-specific components
+        if any(key in k for key in text_specific_keys):
+            skipped_keys.append(k)
+            continue
+
+        # Skip mlp_query (will be replaced by mlp_query_text)
+        if 'mlp_query' in k and 'mlp_query_text' not in k:
+            skipped_keys.append(k)
+            print_log(f'[PRETRAINED] Skipping {k} (replaced by mlp_query_text)', logger=logger)
+            continue
+
+        # Check if key exists in current model
+        if k in model_dict:
+            # Check shape match
+            if v.shape == model_dict[k].shape:
+                filtered_dict[k] = v
+                loaded_keys.append(k)
+            else:
+                skipped_keys.append(k)
+                print_log(f'[PRETRAINED] Shape mismatch for {k}: pretrained {v.shape} vs model {model_dict[k].shape}',
+                         logger=logger)
+        else:
+            skipped_keys.append(k)
+
+    # Find missing keys (keys in model but not in pretrained)
+    for k in model_dict.keys():
+        if k not in filtered_dict and not any(key in k for key in text_specific_keys):
+            # Only report non-text-specific missing keys as concerning
+            if 'mlp_query' not in k:  # mlp_query_text is expected to be new
+                missing_keys.append(k)
+
+    # Load filtered weights
+    base_model.load_state_dict(filtered_dict, strict=False)
+
+    # Print statistics
+    print_log(f'[PRETRAINED] ========== Loading Summary ==========', logger=logger)
+    print_log(f'[PRETRAINED] Total pretrained parameters: {len(pretrained_dict)}', logger=logger)
+    print_log(f'[PRETRAINED] Successfully loaded: {len(loaded_keys)}', logger=logger)
+    print_log(f'[PRETRAINED] Skipped (text-specific or mismatched): {len(skipped_keys)}', logger=logger)
+    print_log(f'[PRETRAINED] Missing in pretrained (will be randomly initialized): {len(missing_keys)}', logger=logger)
+
+    if missing_keys:
+        print_log(f'[PRETRAINED] Missing keys (new text components - expected):', logger=logger)
+        for k in missing_keys[:10]:  # Print first 10
+            print_log(f'[PRETRAINED]   - {k}', logger=logger)
+        if len(missing_keys) > 10:
+            print_log(f'[PRETRAINED]   ... and {len(missing_keys) - 10} more', logger=logger)
+
+    # Print checkpoint info
+    epoch = -1
+    if state_dict.get('epoch') is not None:
+        epoch = state_dict['epoch']
+    if state_dict.get('metrics') is not None:
+        metrics = state_dict['metrics']
+        if not isinstance(metrics, dict):
+            metrics = metrics.state_dict()
+    else:
+        metrics = 'No Metrics'
+    print_log(f'[PRETRAINED] Checkpoint from epoch {epoch} (performance = {str(metrics)})', logger=logger)
+    print_log(f'[PRETRAINED] =====================================', logger=logger) 

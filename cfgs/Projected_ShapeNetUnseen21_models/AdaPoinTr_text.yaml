@@ -27,10 +27,7 @@ dataset : {
             others: {subset: 'train'}},
   val : { _base_: cfgs/dataset_configs/Projected_ShapeNet-34_noise_text.yaml,
             others: {subset: 'test'}},
-  # Optional: Uncomment to evaluate on unseen categories during training
-  # val_unseen : { _base_: cfgs/dataset_configs/Projected_ShapeNet-Unseen21_noise_text.yaml,
-  #           others: {subset: 'test'}},
-  test : { _base_: cfgs/dataset_configs/Projected_ShapeNet-34_noise_text.yaml,
+  test : { _base_: cfgs/dataset_configs/Projected_ShapeNet-Unseen21_noise_text.yaml,
             others: {subset: 'test'}}}
 
 # Optional: Load pretrained weights from non-text AdaPoinTr checkpoint
