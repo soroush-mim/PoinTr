@@ -11,6 +11,9 @@ from extensions.chamfer_dist import ChamferDistanceL1
 from .build import MODELS, build_model_from_cfg
 from models.Transformer_utils import *
 from utils import misc
+from .text_encoder import CLIPTextEncoder
+from .text_query_generator import TextConditionedQueryGenerator
+from .ulip_alignment_loss import create_ulip_alignment_loss
 
 class SelfAttnBlockApi(nn.Module):
     r'''
@@ -757,7 +760,7 @@ class SimpleRebuildFCLayer(nn.Module):
         assert rebuild_pc.size(1) == rec_feature.size(1)
         return rebuild_pc
 
-######################################## PCTransformer ########################################   
+######################################## PCTransformer ########################################
 class PCTransformer(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -771,7 +774,13 @@ class PCTransformer(nn.Module):
         self.num_query = query_num = config.num_query
         global_feature_dim = config.global_feature_dim
 
+        # Text conditioning configuration
+        self.use_text_conditioning = getattr(config, 'use_text_conditioning', False)
+        self.text_encoder_name = getattr(config, 'text_encoder_name', 'openai/clip-vit-large-patch14')
+
         print_log(f'Transformer with config {config}', logger='MODEL')
+        if self.use_text_conditioning:
+            print_log(f'[TEXT-CONDITIONING] Enabled with encoder: {self.text_encoder_name}', logger='MODEL')
         # base encoder
         if self.encoder_type == 'graph':
             self.grouper = DGCNN_Grouper(k = 16)
@@ -814,7 +823,7 @@ class PCTransformer(nn.Module):
             self.mem_link = nn.Linear(encoder_config.embed_dim, decoder_config.embed_dim)
         # Coarse Level 2 : Decoder
         self.decoder = PointTransformerDecoderEntry(decoder_config)
- 
+
         self.query_ranking = nn.Sequential(
             nn.Linear(3, 256),
             nn.GELU(),
@@ -823,6 +832,30 @@ class PCTransformer(nn.Module):
             nn.Linear(256, 1),
             nn.Sigmoid()
         )
+
+        # Text conditioning modules
+        if self.use_text_conditioning:
+            # Initialize CLIP text encoder (frozen)
+            self.text_encoder = CLIPTextEncoder(model_name=self.text_encoder_name)
+
+            # Initialize text-conditioned query generator
+            self.text_query_generator = TextConditionedQueryGenerator(
+                encoder_dim=encoder_config.embed_dim,
+                text_dim=self.text_encoder.text_dim,  # 768 for CLIP-Large
+                num_queries=query_num,
+                query_dim=decoder_config.embed_dim
+            )
+
+            # Also modify the mlp_query to accept text features
+            self.mlp_query_text = nn.Sequential(
+                nn.Linear(global_feature_dim + self.text_encoder.text_dim + 3, 1024),
+                nn.GELU(),
+                nn.Linear(1024, 1024),
+                nn.GELU(),
+                nn.Linear(1024, decoder_config.embed_dim)
+            )
+
+            print_log('[TEXT-CONDITIONING] Text encoder and query generator initialized', logger='MODEL')
 
         self.apply(self._init_weights)
 
@@ -835,15 +868,35 @@ class PCTransformer(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def forward(self, xyz):
+    def forward(self, xyz, captions=None):
+        """
+        Forward pass with optional text conditioning.
+
+        Args:
+            xyz: torch.Tensor, [B, N, 3] - partial input point cloud
+            captions: list of str or None - text captions for each sample in batch
+
+        Returns:
+            q: torch.Tensor, [B, M, C] - decoded query features
+            coarse: torch.Tensor, [B, M, 3] - coarse point coordinates
+            denoise_length: int - number of denoising queries (training only)
+            text_pooled: torch.Tensor or None - pooled text embeddings [B, 768] (for ULIP loss)
+        """
         bs = xyz.size(0)
         coor, f = self.grouper(xyz, self.center_num) # b n c
         pe =  self.pos_embed(coor)
         x = self.input_proj(f)
 
         x = self.encoder(x + pe, coor) # b n c
-        global_feature = self.increase_dim(x) # B 1024 N 
+        global_feature = self.increase_dim(x) # B 1024 N
         global_feature = torch.max(global_feature, dim=1)[0] # B 1024
+
+        # Extract text features if captions are provided and text conditioning is enabled
+        text_features = None
+        text_pooled = None
+        if self.use_text_conditioning and captions is not None:
+            with torch.no_grad():  # Text encoder is frozen
+                text_features, text_pooled = self.text_encoder.encode_text(captions)
 
         coarse = self.coarse_pred(global_feature).reshape(bs, -1, 3)
 
@@ -863,30 +916,48 @@ class PCTransformer(nn.Module):
             picked_points = misc.fps(xyz, 64)
             picked_points = misc.jitter_points(picked_points)
             coarse = torch.cat([coarse, picked_points], dim=1) # B 256+64 3?
-            denoise_length = 64     
+            denoise_length = 64
 
-            # produce query
-            q = self.mlp_query(
-            torch.cat([
-                global_feature.unsqueeze(1).expand(-1, coarse.size(1), -1),
-                coarse], dim = -1)) # b n c
+            # produce query - with or without text conditioning
+            if self.use_text_conditioning and text_pooled is not None:
+                # Text-conditioned query generation
+                q = self.mlp_query_text(
+                torch.cat([
+                    global_feature.unsqueeze(1).expand(-1, coarse.size(1), -1),
+                    text_pooled.unsqueeze(1).expand(-1, coarse.size(1), -1),
+                    coarse], dim = -1)) # b n c
+            else:
+                # Original query generation
+                q = self.mlp_query(
+                torch.cat([
+                    global_feature.unsqueeze(1).expand(-1, coarse.size(1), -1),
+                    coarse], dim = -1)) # b n c
 
             # forward decoder
             q = self.decoder(q=q, v=mem, q_pos=coarse, v_pos=coor, denoise_length=denoise_length)
 
-            return q, coarse, denoise_length
+            return q, coarse, denoise_length, text_pooled
 
         else:
-            # produce query
-            q = self.mlp_query(
-            torch.cat([
-                global_feature.unsqueeze(1).expand(-1, coarse.size(1), -1),
-                coarse], dim = -1)) # b n c
-            
+            # produce query - with or without text conditioning
+            if self.use_text_conditioning and text_pooled is not None:
+                # Text-conditioned query generation
+                q = self.mlp_query_text(
+                torch.cat([
+                    global_feature.unsqueeze(1).expand(-1, coarse.size(1), -1),
+                    text_pooled.unsqueeze(1).expand(-1, coarse.size(1), -1),
+                    coarse], dim = -1)) # b n c
+            else:
+                # Original query generation
+                q = self.mlp_query(
+                torch.cat([
+                    global_feature.unsqueeze(1).expand(-1, coarse.size(1), -1),
+                    coarse], dim = -1)) # b n c
+
             # forward decoder
             q = self.decoder(q=q, v=mem, q_pos=coarse, v_pos=coor)
 
-            return q, coarse, 0
+            return q, coarse, 0, text_pooled
 
 ######################################## PoinTr ########################################  
 
@@ -922,19 +993,42 @@ class AdaPoinTr(nn.Module):
             nn.Conv1d(1024, 1024, 1)
         )
         self.reduce_map = nn.Linear(self.trans_dim + 1027, self.trans_dim)
+
+        # ULIP alignment loss (optional)
+        self.use_ulip_loss = getattr(config, 'use_ulip_loss', False)
+        self.ulip_loss_weight = getattr(config, 'ulip_loss_weight', 0.1)
+
+        if self.use_ulip_loss:
+            print_log('[ULIP-LOSS] Initializing ULIP alignment loss', logger='MODEL')
+            ulip_config_path = getattr(config, 'ulip_config_path', None)
+            ulip_checkpoint_path = getattr(config, 'ulip_checkpoint_path', None)
+            ulip_temperature = getattr(config, 'ulip_temperature', 0.07)
+
+            self.ulip_loss_module = create_ulip_alignment_loss(
+                config_path=ulip_config_path,
+                checkpoint_path=ulip_checkpoint_path,
+                temperature=ulip_temperature
+            )
+            print_log(f'[ULIP-LOSS] ULIP loss weight: {self.ulip_loss_weight}', logger='MODEL')
+
         self.build_loss_func()
 
     def build_loss_func(self):
         self.loss_func = ChamferDistanceL1()
 
     def get_loss(self, ret, gt, epoch=1):
-        pred_coarse, denoised_coarse, denoised_fine, pred_fine = ret
-        
+        # Unpack return values (text_pooled may be None)
+        if len(ret) == 5:
+            pred_coarse, denoised_coarse, denoised_fine, pred_fine, text_pooled = ret
+        else:
+            pred_coarse, denoised_coarse, denoised_fine, pred_fine = ret
+            text_pooled = None
+
         assert pred_fine.size(1) == gt.size(1)
 
         # denoise loss
-        idx = knn_point(self.factor, gt, denoised_coarse) # B n k 
-        denoised_target = index_points(gt, idx) # B n k 3 
+        idx = knn_point(self.factor, gt, denoised_coarse) # B n k
+        denoised_target = index_points(gt, idx) # B n k 3
         denoised_target = denoised_target.reshape(gt.size(0), -1, 3)
         assert denoised_target.size(1) == denoised_fine.size(1)
         loss_denoised = self.loss_func(denoised_fine, denoised_target)
@@ -945,10 +1039,30 @@ class AdaPoinTr(nn.Module):
         loss_fine = self.loss_func(pred_fine, gt)
         loss_recon = loss_coarse + loss_fine
 
-        return loss_denoised, loss_recon
+        # ULIP alignment loss (if enabled and text embeddings available)
+        loss_ulip = torch.tensor(0.0).to(gt.device)
+        ulip_acc = 0.0
 
-    def forward(self, xyz):
-        q, coarse_point_cloud, denoise_length = self.base_model(xyz) # B M C and B M 3
+        if self.use_ulip_loss and text_pooled is not None:
+            # Compute ULIP alignment loss between completed point cloud and text
+            loss_ulip, ulip_acc = self.ulip_loss_module(pred_fine, text_pooled)
+            loss_ulip = loss_ulip * self.ulip_loss_weight
+
+        return loss_denoised, loss_recon, loss_ulip, ulip_acc
+
+    def forward(self, xyz, captions=None):
+        """
+        Forward pass with optional text conditioning.
+
+        Args:
+            xyz: torch.Tensor, [B, N, 3] - partial input point cloud
+            captions: list of str or None - text captions for each sample in batch
+
+        Returns:
+            ret: tuple - (pred_coarse, denoised_coarse, denoised_fine, pred_fine, text_pooled) if training
+                         (coarse_point_cloud, rebuild_points) if testing
+        """
+        q, coarse_point_cloud, denoise_length, text_pooled = self.base_model(xyz, captions=captions) # B M C and B M 3, text_pooled
     
         B, M ,C = q.shape
 
@@ -983,7 +1097,7 @@ class AdaPoinTr(nn.Module):
             assert pred_fine.size(1) == self.num_query * self.factor
             assert pred_coarse.size(1) == self.num_query
 
-            ret = (pred_coarse, denoised_coarse, denoised_fine, pred_fine)
+            ret = (pred_coarse, denoised_coarse, denoised_fine, pred_fine, text_pooled)
             return ret
 
         else:

@@ -84,7 +84,14 @@ def run_net(args, config, train_writer=None, val_writer=None):
         batch_start_time = time.time()
         batch_time = AverageMeter()
         data_time = AverageMeter()
-        losses = AverageMeter(['SparseLoss', 'DenseLoss'])
+        # Check if model uses ULIP loss
+        use_ulip = hasattr(base_model.module if hasattr(base_model, 'module') else base_model, 'use_ulip_loss') and \
+                   (base_model.module.use_ulip_loss if hasattr(base_model, 'module') else base_model.use_ulip_loss)
+
+        if use_ulip:
+            losses = AverageMeter(['SparseLoss', 'DenseLoss', 'ULIPLoss'])
+        else:
+            losses = AverageMeter(['SparseLoss', 'DenseLoss'])
 
         num_iter = 0
 
@@ -94,9 +101,23 @@ def run_net(args, config, train_writer=None, val_writer=None):
             data_time.update(time.time() - batch_start_time)
             npoints = config.dataset.train._base_.N_POINTS
             dataset_name = config.dataset.train._base_.NAME
+
+            # Handle captions if present (text-conditioned training)
+            captions = None
             if dataset_name == 'PCN' or dataset_name == 'Completion3D' or dataset_name == 'Projected_ShapeNet':
-                partial = data[0].cuda()
-                gt = data[1].cuda()
+                # Check if data contains captions (length 3) or not (length 2)
+                if len(data) == 3:
+                    partial = data[0].cuda()
+                    gt = data[1].cuda()
+                    captions = data[2]  # List of strings, keep on CPU
+                    if idx == 0:
+                        print_log('[TEXT-CONDITIONING] Training with text captions enabled', logger=logger)
+                else:
+                    partial = data[0].cuda()
+                    gt = data[1].cuda()
+                    if idx == 0:
+                        print_log('[TEXT-CONDITIONING] Training without text captions', logger=logger)
+
                 if config.dataset.train._base_.CARS:
                     if idx == 0:
                         print_log('padding while KITTI training', logger=logger)
@@ -110,12 +131,21 @@ def run_net(args, config, train_writer=None, val_writer=None):
                 raise NotImplementedError(f'Train phase do not support {dataset_name}')
 
             num_iter += 1
-           
-            ret = base_model(partial)
-            
-            sparse_loss, dense_loss = base_model.module.get_loss(ret, gt, epoch)
-         
-            _loss = sparse_loss + dense_loss 
+
+            # Forward pass with optional captions
+            ret = base_model(partial, captions=captions)
+
+            # Get loss (may include ULIP loss)
+            loss_output = base_model.module.get_loss(ret, gt, epoch)
+
+            if use_ulip:
+                sparse_loss, dense_loss, ulip_loss, ulip_acc = loss_output
+                _loss = sparse_loss + dense_loss + ulip_loss
+            else:
+                sparse_loss, dense_loss = loss_output[0], loss_output[1]
+                ulip_loss = torch.tensor(0.0).to(gt.device)
+                _loss = sparse_loss + dense_loss
+
             _loss.backward()
 
             # forward
@@ -128,9 +158,16 @@ def run_net(args, config, train_writer=None, val_writer=None):
             if args.distributed:
                 sparse_loss = dist_utils.reduce_tensor(sparse_loss, args)
                 dense_loss = dist_utils.reduce_tensor(dense_loss, args)
-                losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000])
+                if use_ulip:
+                    ulip_loss = dist_utils.reduce_tensor(ulip_loss, args)
+                    losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000, ulip_loss.item() * 1000])
+                else:
+                    losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000])
             else:
-                losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000])
+                if use_ulip:
+                    losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000, ulip_loss.item() * 1000])
+                else:
+                    losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000])
 
 
             if args.distributed:
@@ -140,6 +177,9 @@ def run_net(args, config, train_writer=None, val_writer=None):
             if train_writer is not None:
                 train_writer.add_scalar('Loss/Batch/Sparse', sparse_loss.item() * 1000, n_itr)
                 train_writer.add_scalar('Loss/Batch/Dense', dense_loss.item() * 1000, n_itr)
+                if use_ulip:
+                    train_writer.add_scalar('Loss/Batch/ULIP', ulip_loss.item() * 1000, n_itr)
+                    train_writer.add_scalar('Acc/Batch/ULIP', ulip_acc * 100, n_itr)
 
             batch_time.update(time.time() - batch_start_time)
             batch_start_time = time.time()
@@ -163,8 +203,17 @@ def run_net(args, config, train_writer=None, val_writer=None):
         if train_writer is not None:
             train_writer.add_scalar('Loss/Epoch/Sparse', losses.avg(0), epoch)
             train_writer.add_scalar('Loss/Epoch/Dense', losses.avg(1), epoch)
-        print_log('[Training] EPOCH: %d EpochTime = %.3f (s) Losses = %s' %
-            (epoch,  epoch_end_time - epoch_start_time, ['%.4f' % l for l in losses.avg()]), logger = logger)
+            if use_ulip:
+                train_writer.add_scalar('Loss/Epoch/ULIP', losses.avg(2), epoch)
+
+        if use_ulip:
+            print_log('[Training] EPOCH: %d EpochTime = %.3f (s) Losses = %s' %
+                (epoch,  epoch_end_time - epoch_start_time, ['Sparse: %.4f' % losses.avg(0),
+                                                             'Dense: %.4f' % losses.avg(1),
+                                                             'ULIP: %.4f' % losses.avg(2)]), logger = logger)
+        else:
+            print_log('[Training] EPOCH: %d EpochTime = %.3f (s) Losses = %s' %
+                (epoch,  epoch_end_time - epoch_start_time, ['%.4f' % l for l in losses.avg()]), logger = logger)
 
         if epoch % args.val_freq == 0:
             # Validate the current model
@@ -199,9 +248,17 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
 
             npoints = config.dataset.val._base_.N_POINTS
             dataset_name = config.dataset.val._base_.NAME
+
+            # Handle captions if present
+            captions = None
             if dataset_name == 'PCN' or dataset_name == 'Completion3D' or dataset_name == 'Projected_ShapeNet':
-                partial = data[0].cuda()
-                gt = data[1].cuda()
+                if len(data) == 3:
+                    partial = data[0].cuda()
+                    gt = data[1].cuda()
+                    captions = data[2]  # List of strings
+                else:
+                    partial = data[0].cuda()
+                    gt = data[1].cuda()
             elif dataset_name == 'ShapeNet':
                 gt = data.cuda()
                 partial, _ = misc.seprate_point_cloud(gt, npoints, [int(npoints * 1/4) , int(npoints * 3/4)], fixed_points = None)
@@ -209,7 +266,7 @@ def validate(base_model, test_dataloader, epoch, ChamferDisL1, ChamferDisL2, val
             else:
                 raise NotImplementedError(f'Train phase do not support {dataset_name}')
 
-            ret = base_model(partial)
+            ret = base_model(partial, captions=captions)
             coarse_points = ret[0]
             dense_points = ret[-1]
 
@@ -350,11 +407,19 @@ def test(base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args, config, 
 
             npoints = config.dataset.test._base_.N_POINTS
             dataset_name = config.dataset.test._base_.NAME
-            if dataset_name == 'PCN' or dataset_name == 'Projected_ShapeNet':
-                partial = data[0].cuda()
-                gt = data[1].cuda()
 
-                ret = base_model(partial)
+            # Handle captions if present
+            captions = None
+            if dataset_name == 'PCN' or dataset_name == 'Projected_ShapeNet':
+                if len(data) == 3:
+                    partial = data[0].cuda()
+                    gt = data[1].cuda()
+                    captions = data[2]  # List of strings
+                else:
+                    partial = data[0].cuda()
+                    gt = data[1].cuda()
+
+                ret = base_model(partial, captions=captions)
                 coarse_points = ret[0]
                 dense_points = ret[-1]
 
@@ -377,11 +442,11 @@ def test(base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args, config, 
                 choice = [torch.Tensor([1,1,1]),torch.Tensor([1,1,-1]),torch.Tensor([1,-1,1]),torch.Tensor([-1,1,1]),
                             torch.Tensor([-1,-1,1]),torch.Tensor([-1,1,-1]), torch.Tensor([1,-1,-1]),torch.Tensor([-1,-1,-1])]
                 num_crop = int(npoints * crop_ratio[args.mode])
-                for item in choice:           
+                for item in choice:
                     partial, _ = misc.seprate_point_cloud(gt, npoints, num_crop, fixed_points = item)
                     # NOTE: subsample the input
                     partial = misc.fps(partial, 2048)
-                    ret = base_model(partial)
+                    ret = base_model(partial, captions=None)
                     coarse_points = ret[0]
                     dense_points = ret[-1]
 
@@ -401,7 +466,7 @@ def test(base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args, config, 
                     category_metrics[taxonomy_id].update(_metrics)
             elif dataset_name == 'KITTI':
                 partial = data.cuda()
-                ret = base_model(partial)
+                ret = base_model(partial, captions=None)
                 dense_points = ret[-1]
                 target_path = os.path.join(args.experiment_path, 'vis_result')
                 if not os.path.exists(target_path):
