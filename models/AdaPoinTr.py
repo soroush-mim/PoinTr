@@ -1000,12 +1000,17 @@ class AdaPoinTr(nn.Module):
 
         if self.use_ulip_loss:
             print_log('[ULIP-LOSS] Initializing ULIP alignment loss', logger='MODEL')
+
+            # Check that text conditioning is enabled
+            if not self.base_model.use_text_conditioning:
+                raise ValueError('[ULIP-LOSS] ULIP alignment loss requires text conditioning to be enabled (use_text_conditioning: true)')
+
             ulip_config_path = getattr(config, 'ulip_config_path', None)
             ulip_checkpoint_path = getattr(config, 'ulip_checkpoint_path', None)
             ulip_temperature = getattr(config, 'ulip_temperature', 0.07)
 
             # Use text encoder dimension for ULIP alignment (should be 1280 for ViT-bigG-14)
-            output_dim = self.text_encoder.text_dim
+            output_dim = self.base_model.text_encoder.text_dim
 
             self.ulip_loss_module = create_ulip_alignment_loss(
                 config_path=ulip_config_path,
