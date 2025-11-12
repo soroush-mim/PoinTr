@@ -8,16 +8,16 @@
 # =============================================================================
 
 # Path to your AdaPoinTr checkpoint
-ADAPOINTR_CHECKPOINT="path/to/your/adapointr_checkpoint.pth"
+ADAPOINTR_CHECKPOINT="/home/soroushm/data/AdaPoinTr_ps34.pth"
 
 # Path to your ULIP-2 checkpoint
-ULIP2_CHECKPOINT="path/to/your/ulip2_checkpoint.pth"
+ULIP2_CHECKPOINT="/home/soroushm/data/ULIP-2-PointBERT-10k-xyzrgb-pc-vit_g-objaverse_shapenet-pretrained.pt"
 
 # Output directory for results
-OUTPUT_DIR="results/projected_shapenet34_table4"
+OUTPUT_DIR="results/projected_shapenet34_table4/steps15"
 
 # Optional: Path to caption CSV file (leave empty if not available)
-CAPTION_CSV=""
+CAPTION_CSV="~/data/Cap3D_automated_ShapeNet.csv"
 
 # =============================================================================
 # Evaluation Settings (matching PCN eval defaults)
@@ -30,10 +30,10 @@ NUM_WORKERS=8
 
 # Refinement parameters (same as PCN eval)
 STEPS=15
-LR=0.05
-LAMBDA_TEXT=0.5
-LAMBDA_STICK=2.0
-LAMBDA_SMOOTH=0.1
+LR=0.001
+LAMBDA_TEXT=1.5
+LAMBDA_STICK=3.5
+LAMBDA_SMOOTH=0.01
 K_NEIGHBORS=8
 
 # =============================================================================
@@ -78,7 +78,11 @@ CMD="python scripts/eval_projected_shapenet34_with_refinement.py \
     --lambda_text $LAMBDA_TEXT \
     --lambda_stick $LAMBDA_STICK \
     --lambda_smooth $LAMBDA_SMOOTH \
-    --k_neighbors $K_NEIGHBORS"
+    --k_neighbors $K_NEIGHBORS \
+    --verbose \
+    --refinement_only
+    # --eval_seen \
+    # --eval_unseen"
 
 # Add caption CSV if provided
 if [ ! -z "$CAPTION_CSV" ]; then

@@ -37,10 +37,10 @@ model : {
     text_encoder_name: 'openai/clip-vit-large-patch14',
     # ULIP alignment loss configuration
     use_ulip_loss: true,
-    ulip_loss_weight: 0.1,
+    ulip_loss_weight: 0.05,
     ulip_temperature: 0.07,
     ulip_config_path: null,  # Use default PointBERT config
-    ulip_checkpoint_path: null,  # Optional: path to pretrained ULIP weights
+    ulip_checkpoint_path: /home/soroushm/data/ULIP-2-PointBERT-10k-xyzrgb-pc-vit_g-objaverse_shapenet-pretrained.pt,  # Optional: path to pretrained ULIP weights
     # Original model configuration
     num_query: 512,
     num_points: 8192,

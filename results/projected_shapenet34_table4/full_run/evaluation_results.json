@@ -1,0 +1,515 @@
+{
+  "args": {
+    "config": "cfgs/Projected_ShapeNet34_models/AdaPoinTr.yaml",
+    "checkpoint": "/home/soroushm/data/AdaPoinTr_ps34.pth",
+    "ulip_checkpoint": "/home/soroushm/data/ULIP-2-PointBERT-10k-xyzrgb-pc-vit_g-objaverse_shapenet-pretrained.pt",
+    "model_cache_dir": "/home/soroushm/data",
+    "caption_csv": null,
+    "data_root": null,
+    "eval_seen": true,
+    "eval_unseen": true,
+    "no_refinement": false,
+    "refinement_only": false,
+    "steps": 15,
+    "lr": 0.05,
+    "lambda_text": 0.5,
+    "lambda_stick": 2.0,
+    "lambda_smooth": 0.1,
+    "k_neighbors": 8,
+    "output_dir": "results/projected_shapenet34_table4/full_run",
+    "save_outputs": false,
+    "verbose": false,
+    "device": "cuda",
+    "batch_size": 1,
+    "distributed": false,
+    "num_workers": 8
+  },
+  "seen_categories": {
+    "baseline": {
+      "overall": [
+        "tensor(0.7199, device='cuda:0')",
+        "tensor(9.1650, device='cuda:0')",
+        "tensor(0.3784, device='cuda:0')",
+        "tensor(25.6353, device='cuda:0')"
+      ],
+      "per_category": {
+        "03624134": [
+          "tensor(0.9347, device='cuda:0')",
+          "tensor(4.9382, device='cuda:0')",
+          "tensor(0.0921, device='cuda:0')",
+          "tensor(12.2738, device='cuda:0')"
+        ],
+        "04379243": [
+          "tensor(0.7981, device='cuda:0')",
+          "tensor(7.9654, device='cuda:0')",
+          "tensor(0.2543, device='cuda:0')",
+          "tensor(20.7541, device='cuda:0')"
+        ],
+        "02871439": [
+          "tensor(0.6035, device='cuda:0')",
+          "tensor(11.0505, device='cuda:0')",
+          "tensor(0.4748, device='cuda:0')",
+          "tensor(32.4827, device='cuda:0')"
+        ],
+        "02691156": [
+          "tensor(0.9140, device='cuda:0')",
+          "tensor(5.3682, device='cuda:0')",
+          "tensor(0.0899, device='cuda:0')",
+          "tensor(15.0703, device='cuda:0')"
+        ],
+        "03691459": [
+          "tensor(0.5565, device='cuda:0')",
+          "tensor(11.9733, device='cuda:0')",
+          "tensor(0.5322, device='cuda:0')",
+          "tensor(38.9386, device='cuda:0')"
+        ],
+        "04530566": [
+          "tensor(0.7563, device='cuda:0')",
+          "tensor(8.3078, device='cuda:0')",
+          "tensor(0.2578, device='cuda:0')",
+          "tensor(23.6893, device='cuda:0')"
+        ],
+        "02958343": [
+          "tensor(0.6313, device='cuda:0')",
+          "tensor(9.7302, device='cuda:0')",
+          "tensor(0.2705, device='cuda:0')",
+          "tensor(29.3119, device='cuda:0')"
+        ],
+        "03211117": [
+          "tensor(0.7010, device='cuda:0')",
+          "tensor(9.3612, device='cuda:0')",
+          "tensor(0.3154, device='cuda:0')",
+          "tensor(24.7115, device='cuda:0')"
+        ],
+        "03636649": [
+          "tensor(0.7994, device='cuda:0')",
+          "tensor(8.5524, device='cuda:0')",
+          "tensor(0.5210, device='cuda:0')",
+          "tensor(26.5611, device='cuda:0')"
+        ],
+        "03001627": [
+          "tensor(0.6975, device='cuda:0')",
+          "tensor(9.5044, device='cuda:0')",
+          "tensor(0.3449, device='cuda:0')",
+          "tensor(24.2017, device='cuda:0')"
+        ],
+        "04401088": [
+          "tensor(0.7783, device='cuda:0')",
+          "tensor(8.0026, device='cuda:0')",
+          "tensor(0.2045, device='cuda:0')",
+          "tensor(22.1635, device='cuda:0')"
+        ],
+        "03928116": [
+          "tensor(0.5954, device='cuda:0')",
+          "tensor(11.6803, device='cuda:0')",
+          "tensor(0.5612, device='cuda:0')",
+          "tensor(32.4978, device='cuda:0')"
+        ],
+        "02876657": [
+          "tensor(0.7438, device='cuda:0')",
+          "tensor(10.6989, device='cuda:0')",
+          "tensor(1.0029, device='cuda:0')",
+          "tensor(30.7250, device='cuda:0')"
+        ],
+        "02933112": [
+          "tensor(0.5709, device='cuda:0')",
+          "tensor(11.2379, device='cuda:0')",
+          "tensor(0.4308, device='cuda:0')",
+          "tensor(35.1763, device='cuda:0')"
+        ],
+        "02924116": [
+          "tensor(0.7415, device='cuda:0')",
+          "tensor(8.8019, device='cuda:0')",
+          "tensor(0.2725, device='cuda:0')",
+          "tensor(27.6080, device='cuda:0')"
+        ],
+        "02808440": [
+          "tensor(0.6666, device='cuda:0')",
+          "tensor(10.2924, device='cuda:0')",
+          "tensor(0.4303, device='cuda:0')",
+          "tensor(26.8340, device='cuda:0')"
+        ],
+        "02828884": [
+          "tensor(0.8378, device='cuda:0')",
+          "tensor(7.2255, device='cuda:0')",
+          "tensor(0.2087, device='cuda:0')",
+          "tensor(18.5969, device='cuda:0')"
+        ],
+        "02992529": [
+          "tensor(0.7883, device='cuda:0')",
+          "tensor(7.9311, device='cuda:0')",
+          "tensor(0.2245, device='cuda:0')",
+          "tensor(21.2743, device='cuda:0')"
+        ],
+        "03642806": [
+          "tensor(0.7642, device='cuda:0')",
+          "tensor(9.0206, device='cuda:0')",
+          "tensor(0.6644, device='cuda:0')",
+          "tensor(18.9011, device='cuda:0')"
+        ],
+        "04090263": [
+          "tensor(0.9355, device='cuda:0')",
+          "tensor(5.0188, device='cuda:0')",
+          "tensor(0.0757, device='cuda:0')",
+          "tensor(13.5769, device='cuda:0')"
+        ],
+        "02818832": [
+          "tensor(0.5543, device='cuda:0')",
+          "tensor(12.3246, device='cuda:0')",
+          "tensor(0.6435, device='cuda:0')",
+          "tensor(31.8592, device='cuda:0')"
+        ],
+        "03046257": [
+          "tensor(0.6892, device='cuda:0')",
+          "tensor(9.8707, device='cuda:0')",
+          "tensor(0.3975, device='cuda:0')",
+          "tensor(29.0008, device='cuda:0')"
+        ],
+        "03948459": [
+          "tensor(0.8263, device='cuda:0')",
+          "tensor(7.2801, device='cuda:0')",
+          "tensor(0.2134, device='cuda:0')",
+          "tensor(19.1838, device='cuda:0')"
+        ],
+        "03337140": [
+          "tensor(0.5611, device='cuda:0')",
+          "tensor(11.5710, device='cuda:0')",
+          "tensor(0.4936, device='cuda:0')",
+          "tensor(37.2401, device='cuda:0')"
+        ],
+        "03797390": [
+          "tensor(0.5515, device='cuda:0')",
+          "tensor(11.4171, device='cuda:0')",
+          "tensor(0.4842, device='cuda:0')",
+          "tensor(28.2503, device='cuda:0')"
+        ]
+      }
+    },
+    "refined": {
+      "overall": [
+        "tensor(0.0353, device='cuda:0')",
+        "tensor(104.9950, device='cuda:0')",
+        "tensor(50.1629, device='cuda:0')",
+        "tensor(204.9070, device='cuda:0')"
+      ],
+      "per_category": {
+        "03624134": [
+          "tensor(0.0305, device='cuda:0')",
+          "tensor(131.7845, device='cuda:0')",
+          "tensor(72.7537, device='cuda:0')",
+          "tensor(254.8947, device='cuda:0')"
+        ],
+        "04379243": [
+          "tensor(0.0331, device='cuda:0')",
+          "tensor(102.0326, device='cuda:0')",
+          "tensor(45.9519, device='cuda:0')",
+          "tensor(202.7317, device='cuda:0')"
+        ],
+        "02871439": [
+          "tensor(0.0373, device='cuda:0')",
+          "tensor(97.6764, device='cuda:0')",
+          "tensor(44.0132, device='cuda:0')",
+          "tensor(193.4429, device='cuda:0')"
+        ],
+        "02691156": [
+          "tensor(0.0282, device='cuda:0')",
+          "tensor(115.1824, device='cuda:0')",
+          "tensor(57.1638, device='cuda:0')",
+          "tensor(236.3371, device='cuda:0')"
+        ],
+        "03691459": [
+          "tensor(0.0369, device='cuda:0')",
+          "tensor(94.9623, device='cuda:0')",
+          "tensor(42.7139, device='cuda:0')",
+          "tensor(179.6105, device='cuda:0')"
+        ],
+        "04530566": [
+          "tensor(0.0335, device='cuda:0')",
+          "tensor(111.1105, device='cuda:0')",
+          "tensor(55.0816, device='cuda:0')",
+          "tensor(220.6992, device='cuda:0')"
+        ],
+        "02958343": [
+          "tensor(0.0476, device='cuda:0')",
+          "tensor(97.0669, device='cuda:0')",
+          "tensor(45.4748, device='cuda:0')",
+          "tensor(193.4978, device='cuda:0')"
+        ],
+        "03211117": [
+          "tensor(0.0350, device='cuda:0')",
+          "tensor(104.7717, device='cuda:0')",
+          "tensor(48.9429, device='cuda:0')",
+          "tensor(203.5968, device='cuda:0')"
+        ],
+        "03636649": [
+          "tensor(0.0311, device='cuda:0')",
+          "tensor(113.0172, device='cuda:0')",
+          "tensor(57.5409, device='cuda:0')",
+          "tensor(220.7734, device='cuda:0')"
+        ],
+        "03001627": [
+          "tensor(0.0401, device='cuda:0')",
+          "tensor(93.5078, device='cuda:0')",
+          "tensor(40.8871, device='cuda:0')",
+          "tensor(187.8040, device='cuda:0')"
+        ],
+        "04401088": [
+          "tensor(0.0308, device='cuda:0')",
+          "tensor(111.6575, device='cuda:0')",
+          "tensor(53.9486, device='cuda:0')",
+          "tensor(211.5414, device='cuda:0')"
+        ],
+        "03928116": [
+          "tensor(0.0388, device='cuda:0')",
+          "tensor(96.0521, device='cuda:0')",
+          "tensor(43.0265, device='cuda:0')",
+          "tensor(192.8914, device='cuda:0')"
+        ],
+        "02876657": [
+          "tensor(0.0460, device='cuda:0')",
+          "tensor(99.8594, device='cuda:0')",
+          "tensor(48.8986, device='cuda:0')",
+          "tensor(186.3988, device='cuda:0')"
+        ],
+        "02933112": [
+          "tensor(0.0391, device='cuda:0')",
+          "tensor(92.9410, device='cuda:0')",
+          "tensor(40.9767, device='cuda:0')",
+          "tensor(178.5045, device='cuda:0')"
+        ],
+        "02924116": [
+          "tensor(0.0368, device='cuda:0')",
+          "tensor(103.3582, device='cuda:0')",
+          "tensor(49.1585, device='cuda:0')",
+          "tensor(199.9224, device='cuda:0')"
+        ],
+        "02808440": [
+          "tensor(0.0379, device='cuda:0')",
+          "tensor(98.3456, device='cuda:0')",
+          "tensor(45.3225, device='cuda:0')",
+          "tensor(188.9741, device='cuda:0')"
+        ],
+        "02828884": [
+          "tensor(0.0298, device='cuda:0')",
+          "tensor(106.9404, device='cuda:0')",
+          "tensor(50.3345, device='cuda:0')",
+          "tensor(217.6255, device='cuda:0')"
+        ],
+        "02992529": [
+          "tensor(0.0304, device='cuda:0')",
+          "tensor(112.7459, device='cuda:0')",
+          "tensor(54.8206, device='cuda:0')",
+          "tensor(213.4481, device='cuda:0')"
+        ],
+        "03642806": [
+          "tensor(0.0316, device='cuda:0')",
+          "tensor(111.3049, device='cuda:0')",
+          "tensor(53.4726, device='cuda:0')",
+          "tensor(212.7620, device='cuda:0')"
+        ],
+        "04090263": [
+          "tensor(0.0205, device='cuda:0')",
+          "tensor(128.8528, device='cuda:0')",
+          "tensor(69.4131, device='cuda:0')",
+          "tensor(253.3152, device='cuda:0')"
+        ],
+        "02818832": [
+          "tensor(0.0380, device='cuda:0')",
+          "tensor(93.6064, device='cuda:0')",
+          "tensor(40.8077, device='cuda:0')",
+          "tensor(187.5986, device='cuda:0')"
+        ],
+        "03046257": [
+          "tensor(0.0341, device='cuda:0')",
+          "tensor(106.0974, device='cuda:0')",
+          "tensor(50.4199, device='cuda:0')",
+          "tensor(204.7077, device='cuda:0')"
+        ],
+        "03948459": [
+          "tensor(0.0297, device='cuda:0')",
+          "tensor(117.3940, device='cuda:0')",
+          "tensor(59.4803, device='cuda:0')",
+          "tensor(228.9978, device='cuda:0')"
+        ],
+        "03337140": [
+          "tensor(0.0376, device='cuda:0')",
+          "tensor(94.3752, device='cuda:0')",
+          "tensor(41.9104, device='cuda:0')",
+          "tensor(181.2283, device='cuda:0')"
+        ],
+        "03797390": [
+          "tensor(0.0486, device='cuda:0')",
+          "tensor(90.2315, device='cuda:0')",
+          "tensor(41.5584, device='cuda:0')",
+          "tensor(171.3714, device='cuda:0')"
+        ]
+      }
+    }
+  },
+  "unseen_categories": {
+    "baseline": {
+      "overall": [
+        "tensor(0.6531, device='cuda:0')",
+        "tensor(11.3444, device='cuda:0')",
+        "tensor(0.7321, device='cuda:0')",
+        "tensor(32.6412, device='cuda:0')"
+      ],
+      "per_category": {
+        "03938244": [
+          "tensor(0.5663, device='cuda:0')",
+          "tensor(15.1420, device='cuda:0')",
+          "tensor(1.0882, device='cuda:0')",
+          "tensor(36.0255, device='cuda:0')"
+        ],
+        "04004475": [
+          "tensor(0.5139, device='cuda:0')",
+          "tensor(14.2387, device='cuda:0')",
+          "tensor(0.9641, device='cuda:0')",
+          "tensor(44.6896, device='cuda:0')"
+        ],
+        "04460130": [
+          "tensor(0.6661, device='cuda:0')",
+          "tensor(11.2223, device='cuda:0')",
+          "tensor(0.8889, device='cuda:0')",
+          "tensor(33.9272, device='cuda:0')"
+        ],
+        "04225987": [
+          "tensor(0.7993, device='cuda:0')",
+          "tensor(8.6004, device='cuda:0')",
+          "tensor(0.4328, device='cuda:0')",
+          "tensor(21.4337, device='cuda:0')"
+        ],
+        "02801938": [
+          "tensor(0.6254, device='cuda:0')",
+          "tensor(11.2110, device='cuda:0')",
+          "tensor(0.6086, device='cuda:0')",
+          "tensor(29.3675, device='cuda:0')"
+        ],
+        "02946921": [
+          "tensor(0.6035, device='cuda:0')",
+          "tensor(11.6597, device='cuda:0')",
+          "tensor(0.7200, device='cuda:0')",
+          "tensor(36.5694, device='cuda:0')"
+        ],
+        "03710193": [
+          "tensor(0.6907, device='cuda:0')",
+          "tensor(11.0142, device='cuda:0')",
+          "tensor(0.8796, device='cuda:0')",
+          "tensor(31.7347, device='cuda:0')"
+        ],
+        "03761084": [
+          "tensor(0.4784, device='cuda:0')",
+          "tensor(15.2199, device='cuda:0')",
+          "tensor(1.5611, device='cuda:0')",
+          "tensor(49.2947, device='cuda:0')"
+        ],
+        "02942699": [
+          "tensor(0.5364, device='cuda:0')",
+          "tensor(13.5819, device='cuda:0')",
+          "tensor(0.8691, device='cuda:0')",
+          "tensor(40.5552, device='cuda:0')"
+        ],
+        "04074963": [
+          "tensor(0.7965, device='cuda:0')",
+          "tensor(8.2365, device='cuda:0')",
+          "tensor(0.2773, device='cuda:0')",
+          "tensor(23.5134, device='cuda:0')"
+        ],
+        "03759954": [
+          "tensor(0.7935, device='cuda:0')",
+          "tensor(7.9218, device='cuda:0')",
+          "tensor(0.2747, device='cuda:0')",
+          "tensor(25.4656, device='cuda:0')"
+        ],
+        "03085013": [
+          "tensor(0.7677, device='cuda:0')",
+          "tensor(8.0847, device='cuda:0')",
+          "tensor(0.2210, device='cuda:0')",
+          "tensor(19.1177, device='cuda:0')"
+        ]
+      }
+    },
+    "refined": {
+      "overall": [
+        "tensor(0.0358, device='cuda:0')",
+        "tensor(103.5818, device='cuda:0')",
+        "tensor(49.4848, device='cuda:0')",
+        "tensor(198.6450, device='cuda:0')"
+      ],
+      "per_category": {
+        "03938244": [
+          "tensor(0.0386, device='cuda:0')",
+          "tensor(100.5196, device='cuda:0')",
+          "tensor(47.6594, device='cuda:0')",
+          "tensor(185.1867, device='cuda:0')"
+        ],
+        "04004475": [
+          "tensor(0.0414, device='cuda:0')",
+          "tensor(91.4810, device='cuda:0')",
+          "tensor(40.1006, device='cuda:0')",
+          "tensor(177.7026, device='cuda:0')"
+        ],
+        "04460130": [
+          "tensor(0.0385, device='cuda:0')",
+          "tensor(104.1127, device='cuda:0')",
+          "tensor(50.2198, device='cuda:0')",
+          "tensor(203.9811, device='cuda:0')"
+        ],
+        "04225987": [
+          "tensor(0.0260, device='cuda:0')",
+          "tensor(118.5294, device='cuda:0')",
+          "tensor(60.2001, device='cuda:0')",
+          "tensor(235.2582, device='cuda:0')"
+        ],
+        "02801938": [
+          "tensor(0.0348, device='cuda:0')",
+          "tensor(96.9047, device='cuda:0')",
+          "tensor(44.2139, device='cuda:0')",
+          "tensor(182.6633, device='cuda:0')"
+        ],
+        "02946921": [
+          "tensor(0.0391, device='cuda:0')",
+          "tensor(94.3507, device='cuda:0')",
+          "tensor(44.6257, device='cuda:0')",
+          "tensor(171.9561, device='cuda:0')"
+        ],
+        "03710193": [
+          "tensor(0.0340, device='cuda:0')",
+          "tensor(105.4939, device='cuda:0')",
+          "tensor(50.5330, device='cuda:0')",
+          "tensor(203.9000, device='cuda:0')"
+        ],
+        "03761084": [
+          "tensor(0.0353, device='cuda:0')",
+          "tensor(89.9274, device='cuda:0')",
+          "tensor(38.5214, device='cuda:0')",
+          "tensor(167.9678, device='cuda:0')"
+        ],
+        "02942699": [
+          "tensor(0.0432, device='cuda:0')",
+          "tensor(94.0879, device='cuda:0')",
+          "tensor(42.6310, device='cuda:0')",
+          "tensor(183.3847, device='cuda:0')"
+        ],
+        "04074963": [
+          "tensor(0.0302, device='cuda:0')",
+          "tensor(113.5019, device='cuda:0')",
+          "tensor(55.9799, device='cuda:0')",
+          "tensor(215.7058, device='cuda:0')"
+        ],
+        "03759954": [
+          "tensor(0.0386, device='cuda:0')",
+          "tensor(116.8031, device='cuda:0')",
+          "tensor(60.5918, device='cuda:0')",
+          "tensor(225.0601, device='cuda:0')"
+        ],
+        "03085013": [
+          "tensor(0.0296, device='cuda:0')",
+          "tensor(117.2691, device='cuda:0')",
+          "tensor(58.5409, device='cuda:0')",
+          "tensor(230.9731, device='cuda:0')"
+        ]
+      }
+    }
+  }
+}

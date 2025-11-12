@@ -1,0 +1,116 @@
+{
+  "args": {
+    "config": "cfgs/Projected_ShapeNet34_models/AdaPoinTr.yaml",
+    "checkpoint": "/home/soroushm/data/AdaPoinTr_ps34.pth",
+    "ulip_checkpoint": "/home/soroushm/data/ULIP-2-PointBERT-10k-xyzrgb-pc-vit_g-objaverse_shapenet-pretrained.pt",
+    "model_cache_dir": "/home/soroushm/data",
+    "caption_csv": null,
+    "data_root": null,
+    "eval_seen": true,
+    "eval_unseen": true,
+    "no_refinement": true,
+    "refinement_only": false,
+    "steps": 5,
+    "lr": 0.001,
+    "lambda_text": 1.5,
+    "lambda_stick": 2.0,
+    "lambda_smooth": 0.01,
+    "k_neighbors": 8,
+    "output_dir": "results/projected_shapenet34_table4/unseen_baseline",
+    "save_outputs": false,
+    "verbose": true,
+    "device": "cuda",
+    "batch_size": 1,
+    "distributed": false,
+    "num_workers": 8
+  },
+  "seen_categories": {
+    "baseline": null,
+    "refined": null
+  },
+  "unseen_categories": {
+    "baseline": {
+      "overall": [
+        "tensor(0.6531, device='cuda:0')",
+        "tensor(11.3444, device='cuda:0')",
+        "tensor(0.7321, device='cuda:0')",
+        "tensor(32.6381, device='cuda:0')"
+      ],
+      "per_category": {
+        "03938244": [
+          "tensor(0.5663, device='cuda:0')",
+          "tensor(15.1420, device='cuda:0')",
+          "tensor(1.0882, device='cuda:0')",
+          "tensor(36.0918, device='cuda:0')"
+        ],
+        "04004475": [
+          "tensor(0.5139, device='cuda:0')",
+          "tensor(14.2387, device='cuda:0')",
+          "tensor(0.9641, device='cuda:0')",
+          "tensor(44.6952, device='cuda:0')"
+        ],
+        "04460130": [
+          "tensor(0.6661, device='cuda:0')",
+          "tensor(11.2223, device='cuda:0')",
+          "tensor(0.8889, device='cuda:0')",
+          "tensor(33.9062, device='cuda:0')"
+        ],
+        "04225987": [
+          "tensor(0.7993, device='cuda:0')",
+          "tensor(8.6004, device='cuda:0')",
+          "tensor(0.4328, device='cuda:0')",
+          "tensor(21.4338, device='cuda:0')"
+        ],
+        "02801938": [
+          "tensor(0.6254, device='cuda:0')",
+          "tensor(11.2110, device='cuda:0')",
+          "tensor(0.6086, device='cuda:0')",
+          "tensor(29.3779, device='cuda:0')"
+        ],
+        "02946921": [
+          "tensor(0.6035, device='cuda:0')",
+          "tensor(11.6597, device='cuda:0')",
+          "tensor(0.7200, device='cuda:0')",
+          "tensor(36.4741, device='cuda:0')"
+        ],
+        "03710193": [
+          "tensor(0.6907, device='cuda:0')",
+          "tensor(11.0142, device='cuda:0')",
+          "tensor(0.8796, device='cuda:0')",
+          "tensor(31.7517, device='cuda:0')"
+        ],
+        "03761084": [
+          "tensor(0.4784, device='cuda:0')",
+          "tensor(15.2199, device='cuda:0')",
+          "tensor(1.5611, device='cuda:0')",
+          "tensor(49.3163, device='cuda:0')"
+        ],
+        "02942699": [
+          "tensor(0.5364, device='cuda:0')",
+          "tensor(13.5819, device='cuda:0')",
+          "tensor(0.8691, device='cuda:0')",
+          "tensor(40.4892, device='cuda:0')"
+        ],
+        "04074963": [
+          "tensor(0.7965, device='cuda:0')",
+          "tensor(8.2365, device='cuda:0')",
+          "tensor(0.2773, device='cuda:0')",
+          "tensor(23.4806, device='cuda:0')"
+        ],
+        "03759954": [
+          "tensor(0.7935, device='cuda:0')",
+          "tensor(7.9218, device='cuda:0')",
+          "tensor(0.2747, device='cuda:0')",
+          "tensor(25.5585, device='cuda:0')"
+        ],
+        "03085013": [
+          "tensor(0.7677, device='cuda:0')",
+          "tensor(8.0847, device='cuda:0')",
+          "tensor(0.2210, device='cuda:0')",
+          "tensor(19.0820, device='cuda:0')"
+        ]
+      }
+    },
+    "refined": null
+  }
+}

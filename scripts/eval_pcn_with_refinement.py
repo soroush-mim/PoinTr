@@ -61,15 +61,15 @@ def get_args():
                         help='Skip refinement and only evaluate baseline')
     parser.add_argument('--refinement_only', action='store_true',
                         help='Only evaluate with refinement (skip baseline)')
-    parser.add_argument('--steps', type=int, default=15,
+    parser.add_argument('--steps', type=int, default=50,
                         help='Number of refinement steps')
-    parser.add_argument('--lr', type=float, default=0.05,
+    parser.add_argument('--lr', type=float, default=0.005,
                         help='Refinement learning rate')
-    parser.add_argument('--lambda_text', type=float, default=0.5,
+    parser.add_argument('--lambda_text', type=float, default=1.0,
                         help='Text alignment loss weight')
-    parser.add_argument('--lambda_stick', type=float, default=2.0,
+    parser.add_argument('--lambda_stick', type=float, default=1.5,
                         help='Sticking loss (CD) weight')
-    parser.add_argument('--lambda_smooth', type=float, default=0.1,
+    parser.add_argument('--lambda_smooth', type=float, default=0.01,
                         help='Smoothness loss weight')
     parser.add_argument('--k_neighbors', type=int, default=8,
                         help='Number of neighbors for smoothness')

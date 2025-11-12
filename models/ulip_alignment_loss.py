@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from ulip_models.pointbert.point_encoder import PointTransformer
-from ulip_models.pointbert.misc import cfg_from_yaml_file
+from utils.config import cfg_from_yaml_file
 
 
 class ULIPPointBERTEncoder(nn.Module):

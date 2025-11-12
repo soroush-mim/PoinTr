@@ -95,7 +95,7 @@ class PCN(data.Dataset):
             return data_transforms.Compose([{
                 'callback': 'RandomSamplePoints',
                 'parameters': {
-                    'n_points': 2048
+                    'n_points': 128
                 },
                 'objects': ['partial']
             }, {

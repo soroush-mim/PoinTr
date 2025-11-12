@@ -7,4 +7,4 @@ COMPLETE_POINTS_ROOT: /home/soroushm/data/ShapeNet55-34/ShapeNet55
 CARS: FALSE
 # Text conditioning configuration
 USE_CAPTIONS: true
-CAPTION_FILE: 'data/shapenet/captions.csv'
+CAPTION_FILE: /home/soroushm/data/Cap3D_automated_ShapeNet.csv
