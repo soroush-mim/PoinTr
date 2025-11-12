@@ -42,7 +42,7 @@ model : {
     NAME: AdaPoinTr,
     # Text conditioning configuration
     use_text_conditioning: true,
-    text_encoder_name: 'openai/clip-vit-large-patch14',
+    text_encoder_name: 'ViT-bigG-14',  # OpenCLIP model for ULIP2 compatibility (1280-dim)
     # ULIP alignment loss configuration
     use_ulip_loss: true,
     ulip_loss_weight: 0.05,

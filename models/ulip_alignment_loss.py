@@ -26,15 +26,16 @@ class ULIPPointBERTEncoder(nn.Module):
     Args:
         config_path: str, path to PointBERT config YAML file
         checkpoint_path: str (optional), path to pretrained weights
-        output_dim: int, dimension of output embeddings (default: 512 for ULIP)
+        output_dim: int, dimension of output embeddings (default: 1280 for ULIP2 with ViT-bigG-14)
     """
 
-    def __init__(self, config_path=None, checkpoint_path=None, output_dim=512):
+    def __init__(self, config_path=None, checkpoint_path=None, output_dim=1280):
         super().__init__()
 
         print(f'[ULIP_ENCODER] Loading ULIP PointBERT encoder...')
+        print(f'[ULIP_ENCODER] Target output dimension: {output_dim}')
 
-        # Use default config if not provided
+        # Use default config if not provided (ULIP2 config)
         if config_path is None:
             config_path = './ulip_models/pointbert/ULIP_2_PointBERT_10k_colored_pointclouds.yaml'
 
@@ -106,17 +107,32 @@ class ULIPPointBERTEncoder(nn.Module):
 
             # Filter and load point encoder weights
             point_encoder_dict = {}
+            pc_projection = None
             for k, v in state_dict.items():
                 if 'point_encoder' in k:
                     # Remove 'point_encoder.' prefix
                     new_k = k.replace('point_encoder.', '')
                     point_encoder_dict[new_k] = v
+                elif k == 'pc_projection' or k == 'module.pc_projection':
+                    # Load pc_projection parameter
+                    pc_projection = v
 
             if len(point_encoder_dict) > 0:
                 self.point_encoder.load_state_dict(point_encoder_dict, strict=False)
-                print(f'[ULIP_ENCODER] Loaded {len(point_encoder_dict)} parameters from checkpoint')
+                print(f'[ULIP_ENCODER] Loaded {len(point_encoder_dict)} point encoder parameters from checkpoint')
             else:
                 print(f'[ULIP_ENCODER] Warning: No point_encoder weights found in checkpoint')
+
+            # Load pc_projection if available and shape matches
+            if pc_projection is not None:
+                if pc_projection.shape == self.pc_projection.shape:
+                    self.pc_projection.data.copy_(pc_projection)
+                    print(f'[ULIP_ENCODER] Loaded pc_projection {pc_projection.shape}')
+                else:
+                    print(f'[ULIP_ENCODER] Warning: pc_projection shape mismatch: checkpoint {pc_projection.shape} vs model {self.pc_projection.shape}')
+                    print(f'[ULIP_ENCODER] Using random initialization for pc_projection')
+            else:
+                print(f'[ULIP_ENCODER] Warning: No pc_projection found in checkpoint, using random initialization')
 
         except Exception as e:
             print(f'[ULIP_ENCODER] Warning: Could not load checkpoint: {e}')
@@ -223,7 +239,7 @@ class ULIPAlignmentLoss(nn.Module):
 
 
 def create_ulip_alignment_loss(config_path=None, checkpoint_path=None,
-                               temperature=0.07, output_dim=512):
+                               temperature=0.07, output_dim=1280):
     """
     Factory function to create ULIP alignment loss module.
 
@@ -231,7 +247,7 @@ def create_ulip_alignment_loss(config_path=None, checkpoint_path=None,
         config_path: str (optional), path to PointBERT config
         checkpoint_path: str (optional), path to pretrained ULIP checkpoint
         temperature: float, temperature for contrastive loss
-        output_dim: int, dimension of output embeddings
+        output_dim: int, dimension of output embeddings (default: 1280 for ULIP2)
 
     Returns:
         ulip_loss: ULIPAlignmentLoss module

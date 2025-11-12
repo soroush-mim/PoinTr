@@ -1004,12 +1004,17 @@ class AdaPoinTr(nn.Module):
             ulip_checkpoint_path = getattr(config, 'ulip_checkpoint_path', None)
             ulip_temperature = getattr(config, 'ulip_temperature', 0.07)
 
+            # Use text encoder dimension for ULIP alignment (should be 1280 for ViT-bigG-14)
+            output_dim = self.text_encoder.text_dim
+
             self.ulip_loss_module = create_ulip_alignment_loss(
                 config_path=ulip_config_path,
                 checkpoint_path=ulip_checkpoint_path,
-                temperature=ulip_temperature
+                temperature=ulip_temperature,
+                output_dim=output_dim
             )
             print_log(f'[ULIP-LOSS] ULIP loss weight: {self.ulip_loss_weight}', logger='MODEL')
+            print_log(f'[ULIP-LOSS] ULIP embedding dimension: {output_dim}', logger='MODEL')
 
         self.build_loss_func()
 
