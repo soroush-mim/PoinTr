@@ -13,7 +13,7 @@ scheduler: {
   lowest_decay: 0.02  # min lr = lowest_decay * lr
 }}
 
- bnmscheduler: {
+bnmscheduler: {
   type: Lambda,
   kwargs: {
   decay_step: 21,
@@ -28,15 +28,15 @@ dataset : {
   val : { _base_: cfgs/dataset_configs/Projected_ShapeNet-34_noise_text.yaml,
             others: {subset: 'test'}},
   # Optional: Uncomment to evaluate on unseen categories during training
-  # val_unseen : { _base_: cfgs/dataset_configs/Projected_ShapeNet-Unseen21_noise_text.yaml,
-  #           others: {subset: 'test'}},
+  val_unseen : { _base_: cfgs/dataset_configs/Projected_ShapeNet-Unseen21_noise_text.yaml,
+            others: {subset: 'test'}},
   test : { _base_: cfgs/dataset_configs/Projected_ShapeNet-34_noise_text.yaml,
             others: {subset: 'test'}}}
 
 # Optional: Load pretrained weights from non-text AdaPoinTr checkpoint
 # This allows transfer learning from a pretrained AdaPoinTr model
 # pretrained_adapointr_path: /path/to/pretrained/adapointr/ckpt-best.pth
-pretrained_adapointr_path: null
+pretrained_adapointr_path: /home/soroushm/data/AdaPoinTr_ps34.pth
 
 model : {
     NAME: AdaPoinTr,
