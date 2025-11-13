@@ -24,16 +24,16 @@ scheduler: {
 
 dataset : {
   train : { _base_: cfgs/dataset_configs/Projected_ShapeNet-34_noise_text.yaml,
-            others: {subset: 'train'}},
+            others: {subset: 'train', bs: 20}},
   val : { _base_: cfgs/dataset_configs/Projected_ShapeNet-34_noise_text.yaml,
-            others: {subset: 'test'}},
-  test : { _base_: cfgs/dataset_configs/Projected_ShapeNet-Unseen21_noise_text.yaml,
-            others: {subset: 'test'}}}
+            others: {subset: 'test', bs: 1}},
+  test : { _base_: cfgs/dataset_configs/Projected_ShapeNet-34_noise_text.yaml,
+            others: {subset: 'test', bs: 1}}}
 
 # Optional: Load pretrained weights from non-text AdaPoinTr checkpoint
 # This allows transfer learning from a pretrained AdaPoinTr model
 # pretrained_adapointr_path: /path/to/pretrained/adapointr/ckpt-best.pth
-pretrained_adapointr_path: null
+pretrained_adapointr_path: /home/soroushm/data/AdaPoinTr_ps34.pth
 
 model : {
     NAME: AdaPoinTr,
@@ -77,13 +77,16 @@ model : {
     }
 }
 
-total_bs : 48
+# total_bs : 48
 step_per_update : 1
-max_epoch : 600
+max_epoch : 10  # Reduced from 600 for quick testing
 
 # Gradient accumulation for simulating larger batch sizes
-# Effective batch size = per_gpu_batch_size * gradient_accumulation_steps * num_gpus
-# Example: bs=8, gradient_accumulation_steps=6 -> effective_bs=48
-gradient_accumulation_steps: 1  # Set to >1 to enable gradient accumulation
+gradient_accumulation_steps: 5
+
+# DEBUG MODE: Limit dataset size for quick testing
+debug_mode: true
+debug_train_samples: 300  # Use only 100 training samples
+debug_val_samples: 50     # Use only 50 validation samples
 
 consider_metric: CDL1

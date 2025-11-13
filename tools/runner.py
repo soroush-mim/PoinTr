@@ -12,6 +12,10 @@ from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
 
 def run_net(args, config, train_writer=None, val_writer=None):
     logger = get_logger(args.log_name)
+
+    # Pass config dict to args for debug mode support
+    args.config_dict = config
+
     # build dataset
     (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
                                                             builder.dataset_builder(args, config.dataset.val)
@@ -111,6 +115,15 @@ def run_net(args, config, train_writer=None, val_writer=None):
 
         num_iter = 0
 
+        # Gradient accumulation setup
+        gradient_accumulation_steps = getattr(config, 'gradient_accumulation_steps', 1)
+        effective_batch_size = config.dataset.train.others.bs * gradient_accumulation_steps
+
+        if epoch == start_epoch and gradient_accumulation_steps > 1:
+            print_log(f'[GRADIENT-ACCUMULATION] Accumulation steps: {gradient_accumulation_steps}', logger=logger)
+            print_log(f'[GRADIENT-ACCUMULATION] Per-GPU batch size: {config.dataset.train.others.bs}', logger=logger)
+            print_log(f'[GRADIENT-ACCUMULATION] Effective batch size: {effective_batch_size}', logger=logger)
+
         base_model.train()  # set model to training mode
         n_batches = len(train_dataloader)
         for idx, (taxonomy_ids, model_ids, data) in enumerate(train_dataloader):
@@ -162,28 +175,39 @@ def run_net(args, config, train_writer=None, val_writer=None):
                 ulip_loss = torch.tensor(0.0).to(gt.device)
                 _loss = sparse_loss + dense_loss
 
+            # Scale loss by gradient accumulation steps for proper gradient averaging
+            _loss = _loss / gradient_accumulation_steps
             _loss.backward()
 
-            # forward
-            if num_iter == config.step_per_update:
+            # Update weights after accumulating gradients
+            if num_iter == config.step_per_update or (idx + 1) == n_batches:
+                # Clip gradients
                 torch.nn.utils.clip_grad_norm_(base_model.parameters(), getattr(config, 'grad_norm_clip', 10), norm_type=2)
                 num_iter = 0
                 optimizer.step()
                 base_model.zero_grad()
 
+            # Scale losses back up for logging (they were divided by gradient_accumulation_steps)
+            # This ensures that the logged losses represent the actual loss values
             if args.distributed:
                 sparse_loss = dist_utils.reduce_tensor(sparse_loss, args)
                 dense_loss = dist_utils.reduce_tensor(dense_loss, args)
                 if use_ulip:
                     ulip_loss = dist_utils.reduce_tensor(ulip_loss, args)
-                    losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000, ulip_loss.item() * 1000])
+                    losses.update([sparse_loss.item() * 1000 * gradient_accumulation_steps,
+                                  dense_loss.item() * 1000 * gradient_accumulation_steps,
+                                  ulip_loss.item() * 1000 * gradient_accumulation_steps])
                 else:
-                    losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000])
+                    losses.update([sparse_loss.item() * 1000 * gradient_accumulation_steps,
+                                  dense_loss.item() * 1000 * gradient_accumulation_steps])
             else:
                 if use_ulip:
-                    losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000, ulip_loss.item() * 1000])
+                    losses.update([sparse_loss.item() * 1000 * gradient_accumulation_steps,
+                                  dense_loss.item() * 1000 * gradient_accumulation_steps,
+                                  ulip_loss.item() * 1000 * gradient_accumulation_steps])
                 else:
-                    losses.update([sparse_loss.item() * 1000, dense_loss.item() * 1000])
+                    losses.update([sparse_loss.item() * 1000 * gradient_accumulation_steps,
+                                  dense_loss.item() * 1000 * gradient_accumulation_steps])
 
 
             if args.distributed:
@@ -191,10 +215,10 @@ def run_net(args, config, train_writer=None, val_writer=None):
 
             n_itr = epoch * n_batches + idx
             if train_writer is not None:
-                train_writer.add_scalar('Loss/Batch/Sparse', sparse_loss.item() * 1000, n_itr)
-                train_writer.add_scalar('Loss/Batch/Dense', dense_loss.item() * 1000, n_itr)
+                train_writer.add_scalar('Loss/Batch/Sparse', sparse_loss.item() * 1000 * gradient_accumulation_steps, n_itr)
+                train_writer.add_scalar('Loss/Batch/Dense', dense_loss.item() * 1000 * gradient_accumulation_steps, n_itr)
                 if use_ulip:
-                    train_writer.add_scalar('Loss/Batch/ULIP', ulip_loss.item() * 1000, n_itr)
+                    train_writer.add_scalar('Loss/Batch/ULIP', ulip_loss.item() * 1000 * gradient_accumulation_steps, n_itr)
                     train_writer.add_scalar('Acc/Batch/ULIP', ulip_acc * 100, n_itr)
 
             batch_time.update(time.time() - batch_start_time)
@@ -420,6 +444,10 @@ crop_ratio = {
 def test_net(args, config):
     logger = get_logger(args.log_name)
     print_log('Tester start ... ', logger = logger)
+
+    # Pass config dict to args for debug mode support
+    args.config_dict = config
+
     _, test_dataloader = builder.dataset_builder(args, config.dataset.test)
  
     base_model = builder.model_builder(config.model)

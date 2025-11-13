@@ -13,6 +13,26 @@ from utils.misc import *
 
 def dataset_builder(args, config):
     dataset = build_dataset_from_cfg(config._base_, config.others)
+
+    # Debug mode: Limit dataset size for quick testing
+    if hasattr(args, 'config_dict'):
+        cfg_dict = args.config_dict
+        debug_mode = cfg_dict.get('debug_mode', False)
+
+        if debug_mode:
+            subset_name = config.others.subset  # 'train', 'test', etc.
+            if subset_name == 'train':
+                max_samples = cfg_dict.get('debug_train_samples', None)
+            else:
+                max_samples = cfg_dict.get('debug_val_samples', None)
+
+            if max_samples is not None and max_samples < len(dataset):
+                print_log(f'[DEBUG] Limiting {subset_name} dataset from {len(dataset)} to {max_samples} samples',
+                         logger='DATASET')
+                # Create subset of dataset
+                indices = list(range(max_samples))
+                dataset = torch.utils.data.Subset(dataset, indices)
+
     shuffle = config.others.subset == 'train'
     if args.distributed:
         sampler = torch.utils.data.distributed.DistributedSampler(dataset, shuffle = shuffle)
@@ -24,7 +44,7 @@ def dataset_builder(args, config):
     else:
         sampler = None
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.others.bs if shuffle else 1,
-                                                shuffle = shuffle, 
+                                                shuffle = shuffle,
                                                 drop_last = config.others.subset == 'train',
                                                 num_workers = int(args.num_workers),
                                                 worker_init_fn=worker_init_fn)
