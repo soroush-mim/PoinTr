@@ -317,14 +317,14 @@ def test_net(args, config):
     logger = get_logger(args.log_name)
     print_log('Tester start ... ', logger = logger)
     _, test_dataloader = builder.dataset_builder(args, config.dataset.test)
- 
+
     base_model = builder.model_builder(config.model)
     # load checkpoints
     builder.load_model(base_model, args.ckpts, logger = logger)
     if args.use_gpu:
         base_model.to(args.local_rank)
 
-    #  DDP    
+    #  DDP
     if args.distributed:
         raise NotImplementedError()
 
@@ -332,7 +332,29 @@ def test_net(args, config):
     ChamferDisL1 = ChamferDistanceL1()
     ChamferDisL2 = ChamferDistanceL2()
 
+    # Run standard test evaluation
+    print_log('=' * 80, logger=logger)
+    print_log('STANDARD PCN TEST EVALUATION', logger=logger)
+    print_log('=' * 80, logger=logger)
     test(base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args, config, logger=logger)
+
+    # Run unseen category evaluation if configured
+    if hasattr(config.dataset, 'test_unseen'):
+        print_log('\n' + '=' * 80, logger=logger)
+        print_log('UNSEEN CATEGORY EVALUATION (8 ShapeNet categories not in PCN)', logger=logger)
+        print_log('=' * 80, logger=logger)
+
+        _, test_unseen_dataloader = builder.dataset_builder(args, config.dataset.test_unseen)
+        test(base_model, test_unseen_dataloader, ChamferDisL1, ChamferDisL2, args, config, logger=logger)
+
+    # Run hold-out class evaluation if configured
+    if hasattr(config.dataset, 'test_holdout'):
+        print_log('\n' + '=' * 80, logger=logger)
+        print_log('HOLD-OUT CLASS EVALUATION (Held-out PCN category)', logger=logger)
+        print_log('=' * 80, logger=logger)
+
+        _, test_holdout_dataloader = builder.dataset_builder(args, config.dataset.test_holdout)
+        test(base_model, test_holdout_dataloader, ChamferDisL1, ChamferDisL2, args, config, logger=logger)
 
 def test(base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args, config, logger = None):
 

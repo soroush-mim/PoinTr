@@ -1,0 +1,11 @@
+NAME: PCNHoldout
+CATEGORY_FILE_PATH: data/PCN/PCN.json
+N_POINTS: 16384
+N_RENDERINGS: 8
+PARTIAL_POINTS_PATH: /data/soroush/adapointr/PCN/ShapeNetCompletion/%s/partial/%s/%s/%02d.pcd
+COMPLETE_POINTS_PATH: /data/soroush/adapointr/PCN/ShapeNetCompletion/%s/complete/%s/%s.pcd
+CARS: FALSE
+# HOLDOUT_CLASS: taxonomy_id to exclude from training (e.g., '02691156' for airplane)
+# Must be set when using this config
+HOLDOUT_CLASS: '02691156'  # Default: airplane
+HOLDOUT_ONLY: FALSE  # False = exclude holdout class (for training)
